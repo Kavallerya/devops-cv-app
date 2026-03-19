@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Python кэш и артефакты
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Виртуальное окружение (очень важно исключить!)
+venv/
+env/
+.venv/
+
+# Секреты и локальные конфиги
+.env
+.env.local
+
+# IDE (VS Code, PyCharm)
+.vscode/
+.idea/
+
+# Логи и базы данных (если локально используете SQLite)
+*.log
+*.sqlite3
+*.db

@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Зависимости Node.js (самое важное!)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+
+# Локальные сборки React (контейнер соберет их сам)
+build/
+dist/
+
+# Секреты
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+
+# Прочее
+.DS_Store # Если вы работаете на Mac
