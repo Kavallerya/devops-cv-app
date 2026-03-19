@@ -1,11 +1,11 @@
 #!/bin/sh
-# Прерывать выполнение при любой ошибке
 set -e
 
-echo "Запуск миграций БД..."
-# Применяем все миграции до актуального состояния
+echo "Running DB migrations..."
 alembic upgrade head
 
-echo "Запуск FastAPI..."
-# Запускаем команду, переданную в CMD (uvicorn)
+echo "Seeding database..."
+python seed.py
+
+echo "Starting FastAPI..."
 exec "$@"
