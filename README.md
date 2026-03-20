@@ -198,3 +198,59 @@ All CV content is stored in the database. To update it:
 - Build the frontend for production: `cd frontend && npm run build` (outputs to `frontend/dist/`)
 - Serve the `dist/` folder via Nginx or configure FastAPI to serve static files
 - Use environment variables (not `.env` files) in production deployments
+
+---
+
+## CI/CD Pipeline
+
+Every push to `main` triggers a two-job GitHub Actions workflow:
+
+```
+push to main
+    │
+    ▼
+[build-and-push]
+    ├── docker build backend  → DockerHub  (sha tag + latest)
+    └── docker build frontend → DockerHub  (sha tag + latest)
+    │
+    ▼
+[deploy]
+    ├── scp docker-compose.prod.yml → production server
+    ├── write .env from GitHub Secrets
+    ├── docker compose pull
+    ├── docker compose up -d --remove-orphans
+    └── docker image prune -f
+```
+
+### Required GitHub Secrets
+
+Go to **Settings → Secrets and variables → Actions** and add:
+
+| Secret | Description |
+|--------|-------------|
+| `DOCKERHUB_USERNAME` | Your Docker Hub username |
+| `DOCKERHUB_TOKEN` | Docker Hub access token (not your password — create one at hub.docker.com → Account Settings → Security) |
+| `PROD_HOST` | Production server IP or hostname |
+| `PROD_USER` | SSH user on the server (e.g. `ubuntu`, `root`) |
+| `PROD_SSH_KEY` | Private SSH key (contents of `~/.ssh/id_rsa`) |
+| `PROD_PORT` | SSH port (optional, defaults to `22`) |
+| `DB_USER` | PostgreSQL username |
+| `DB_PASSWORD` | PostgreSQL password |
+| `DB_NAME` | PostgreSQL database name |
+| `ALLOWED_ORIGINS` | Comma-separated allowed CORS origins (e.g. `https://yourdomain.com`) |
+
+### One-time server setup
+
+SSH into your production server and install Docker:
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+That's all — the pipeline handles everything else on every deploy.
+
+### Manual trigger
+
+The workflow also has `workflow_dispatch`, so you can re-deploy any time from the GitHub Actions tab without pushing new code.
