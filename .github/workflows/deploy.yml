@@ -17,7 +17,8 @@ jobs:
   build-and-push:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
-
+    environment: cv-devops-env
+    
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
 
