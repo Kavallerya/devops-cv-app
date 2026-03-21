@@ -18,7 +18,7 @@ jobs:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
     environment: cv-devops-env
-    
+
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
 
@@ -70,7 +70,8 @@ jobs:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: build-and-push
-
+    environment: cv-devops-env
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
