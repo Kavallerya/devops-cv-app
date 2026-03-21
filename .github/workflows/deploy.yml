@@ -71,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     environment: cv-devops-env
-      
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -85,6 +85,24 @@ jobs:
           port: ${{ secrets.PROD_PORT || 22 }}
           source: docker-compose.prod.yml
           target: ~/cv-app/
+
+      - name: Install Docker if not present
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_PORT || 22 }}
+          script: |
+            if ! command -v docker &> /dev/null; then
+              echo "Docker not found, installing..."
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker $USER
+              newgrp docker
+              echo "Docker installed: $(docker --version)"
+            else
+              echo "Docker already installed: $(docker --version)"
+            fi
 
       - name: Deploy on production server
         uses: appleboy/ssh-action@v1.0.3
