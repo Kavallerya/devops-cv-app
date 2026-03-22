@@ -238,7 +238,7 @@ Go to **Settings → Secrets and variables → Actions** and add:
 | `DB_PASSWORD` | PostgreSQL password |
 | `DB_NAME` | PostgreSQL database name |
 | `ALLOWED_ORIGINS` | Comma-separated allowed CORS origins (e.g. `https://yourdomain.com`) |
-
+Please note that the workflow file specifies the **"cv-devops-env"** secret environment
 ### One-time server setup
 
 SSH into your production server and install Docker:
