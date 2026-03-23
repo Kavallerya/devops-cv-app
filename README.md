@@ -1,8 +1,8 @@
 # Dynamic CV as an API
 
-A full-stack resume application serving your CV as a REST API, with a React frontend and Prometheus metrics ready for Grafana dashboarding.
+A full-stack resume application serving your CV as a REST API, with a React frontend, PostgreSQL database, CI/CD via GitHub Actions, and a Prometheus + Grafana monitoring stack.
 
-**Stack:** Python 3.11+ · FastAPI · SQLAlchemy (async) · PostgreSQL · React 18 · Vite · prometheus-client
+**Stack:** Python 3.11+ · FastAPI · SQLAlchemy (async) · Alembic · PostgreSQL · React 18 · Vite · Nginx · Docker · prometheus-client · Grafana
 
 ---
 
@@ -12,33 +12,56 @@ A full-stack resume application serving your CV as a REST API, with a React fron
 app-devops/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py         # FastAPI entry point
-│   │   ├── config.py       # Settings from .env
-│   │   ├── database.py     # Async SQLAlchemy engine
-│   │   ├── models.py       # ORM models (profile, experience, skills, visitors)
-│   │   ├── schemas.py      # Pydantic response schemas
-│   │   ├── metrics.py      # Prometheus counters + middleware
+│   │   ├── main.py             # FastAPI entry point, CORS, middleware, lifespan
+│   │   ├── config.py           # Settings from .env (pydantic-settings)
+│   │   ├── database.py         # Async SQLAlchemy engine + get_db() dependency
+│   │   ├── models.py           # ORM models: profile, experience, skills, visitors
+│   │   ├── schemas.py          # Pydantic response schemas
+│   │   ├── metrics.py          # Prometheus counters, histogram, middleware
 │   │   └── routers/
-│   │       ├── profile.py
-│   │       ├── experience.py
-│   │       ├── skills.py
-│   │       └── metrics.py
-│   ├── seed.py             # One-time DB seed with sample CV data
+│   │       ├── profile.py      # GET /api/profile  (+ visitor deduplication)
+│   │       ├── experience.py   # GET /api/experience
+│   │       ├── skills.py       # GET /api/skills
+│   │       └── metrics.py      # GET /api/metrics  (Prometheus scrape target)
+│   ├── migrations/
+│   │   ├── versions/           # Alembic migration files
+│   │   └── env.py              # Alembic env — wired to app models + .env URL
+│   ├── Dockerfile
+│   ├── entrypoint.sh           # alembic upgrade head → seed.py → uvicorn
+│   ├── alembic.ini
+│   ├── seed.py                 # Idempotent DB seed with sample CV data
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx
-│   │   ├── api/cvApi.js
+│   │   ├── App.jsx             # Root component, parallel data fetching
+│   │   ├── api/cvApi.js        # Axios wrappers for all API calls
 │   │   ├── components/
 │   │   │   ├── Profile.jsx
 │   │   │   ├── Experience.jsx
 │   │   │   └── Skills.jsx
 │   │   └── styles/main.css
-│   ├── index.html
-│   ├── vite.config.js
+│   ├── nginx.conf              # SPA fallback + /api proxy to backend
+│   ├── Dockerfile              # Multi-stage: node build → nginx:alpine
+│   ├── vite.config.js          # Dev proxy: /api → localhost:8000
 │   └── package.json
-└── README.md
+├── monitoring/
+│   ├── docker-compose.monitoring.yml   # Prometheus + Grafana stack
+│   ├── prometheus.yml                  # Scrape config (target: cv-api)
+│   ├── .env.example                    # GRAFANA_USER / GRAFANA_PASSWORD
+│   └── grafana/
+│       ├── provisioning/
+│       │   ├── datasources/prometheus.yml   # Auto-connects Prometheus
+│       │   └── dashboards/dashboards.yml    # Auto-loads dashboards from folder
+│       └── dashboards/
+│           └── cv_api.json              # Ready-made dashboard (8 panels)
+├── .github/
+│   └── workflows/
+│       └── deploy.yml          # CI/CD: build → push DockerHub → deploy via SSH
+├── docker-compose.yaml         # Local development stack (with build:)
+├── docker-compose.prod.yml     # Production stack (pre-built images from DockerHub)
+├── .env.example                # DB_USER / DB_PASSWORD / DB_NAME / DB_PORT
+└── .gitignore
 ```
 
 ---
@@ -48,12 +71,12 @@ app-devops/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/profile` | Full profile object (name, title, summary, contacts) |
-| GET | `/api/experience` | List of work experience entries, ordered by date |
+| GET | `/api/experience` | Work experience list ordered by date |
 | GET | `/api/skills` | Skills grouped by category with proficiency levels |
-| GET | `/api/metrics` | Prometheus metrics (scrape target) |
+| GET | `/api/metrics` | Prometheus metrics scrape target |
 | GET | `/health` | Health check — `{"status": "ok"}` |
-| GET | `/api/docs` | Interactive Swagger UI |
-| GET | `/api/redoc` | ReDoc documentation |
+| GET | `/api/docs` | Swagger UI |
+| GET | `/api/redoc` | ReDoc |
 
 ---
 
@@ -64,159 +87,175 @@ app-devops/
 - Python 3.11+
 - Node.js 18+
 - PostgreSQL (local or remote)
+- Docker + Docker Compose (optional, for full stack)
 
-### 1. Database Setup
+### Option A — Docker Compose (recommended)
 
-Create the database:
+```bash
+cp .env.example .env        # fill in DB_USER, DB_PASSWORD, DB_NAME
+docker compose up --build -d
+```
+
+App: `http://localhost` · API docs: `http://localhost/api/docs`
+
+### Option B — Without Docker
+
+**1. Create the database**
 ```sql
 CREATE DATABASE cv_db;
 ```
 
-### 2. Backend
-
+**2. Backend**
 ```bash
 cd backend
 
 # Windows
-python -m venv .venv
-.venv\Scripts\activate
-
+python -m venv .venv && .venv\Scripts\activate
 # macOS / Linux
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 
 pip install -r requirements.txt
+cp .env.example .env        # set DATABASE_URL
 
-# Configure environment
-copy .env.example .env
-# Edit .env and set your DATABASE_URL
-
-# Seed the database with sample CV data (run once)
-python seed.py
-
-# Start the API server
+alembic upgrade head        # create tables
+python seed.py              # populate with sample data
 uvicorn app.main:app --reload --port 8000
 ```
 
-API will be available at `http://localhost:8000`
-Swagger UI at `http://localhost:8000/api/docs`
-
-### 3. Frontend
-
+**3. Frontend**
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev                 # http://localhost:5173  (proxies /api → :8000)
 ```
-
-Frontend will be available at `http://localhost:5173`
-The Vite dev proxy forwards `/api/*` requests to the backend automatically.
 
 ---
 
 ## Environment Variables
 
-Copy `backend/.env.example` to `backend/.env` and fill in the values:
+### Root `.env` (Docker Compose)
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL async connection string | `postgresql+asyncpg://postgres:password@localhost:5432/cv_db` |
-| `APP_PORT` | Backend server port | `8000` |
-| `ALLOWED_ORIGINS` | Comma-separated CORS origins | `http://localhost:5173,http://localhost:3000` |
+| Variable | Description |
+|----------|-------------|
+| `DB_USER` | PostgreSQL username |
+| `DB_PASSWORD` | PostgreSQL password |
+| `DB_NAME` | PostgreSQL database name |
+| `DB_PORT` | PostgreSQL port (default `5432`) |
+
+### `backend/.env` (local dev without Docker)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `postgresql+asyncpg://postgres:password@localhost:5432/cv_db` | SQLAlchemy async connection string |
+| `APP_PORT` | `8000` | Backend server port |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | CORS origins (not needed behind Nginx) |
+
+---
+
+## Database Migrations (Alembic)
+
+Alembic reads `DATABASE_URL` from `.env` automatically — no credentials in `alembic.ini`.
+
+```bash
+cd backend
+
+# Apply all pending migrations
+alembic upgrade head
+
+# Generate a new migration after changing models.py
+alembic revision --autogenerate -m "add field X"
+
+# Check current revision
+alembic current
+
+# Roll back one step
+alembic downgrade -1
+```
+
+In Docker, `entrypoint.sh` runs `alembic upgrade head` + `seed.py` automatically before starting uvicorn.
+
+---
+
+## Nginx (Frontend)
+
+`frontend/nginx.conf` handles two things:
+
+- **SPA routing** — `try_files $uri $uri/ /index.html` so refreshing `/experience` doesn't 404
+- **API proxy** — `location /api/` proxies to `http://backend:8000`, eliminating CORS entirely in production
 
 ---
 
 ## Prometheus Metrics
 
-The `/api/metrics` endpoint exposes metrics in the Prometheus text exposition format (version 0.0.4).
-
-### Available Metrics
+`GET /api/metrics` exposes metrics in Prometheus text format (v0.0.4). Instrumented via `PrometheusMiddleware` in `app/metrics.py`.
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `cv_api_requests_total` | Counter | `endpoint`, `method`, `status_code` | Total API requests |
-| `cv_api_request_duration_seconds` | Histogram | `endpoint` | Request duration in seconds |
-| `cv_visitors_total` | Counter | — | Total unique CV visitors |
-
-### Prometheus Scrape Configuration
-
-Add to your `prometheus.yml`:
-
-```yaml
-scrape_configs:
-  - job_name: 'cv-api'
-    scrape_interval: 15s
-    static_configs:
-      - targets: ['localhost:8000']
-    metrics_path: '/api/metrics'
-```
-
-### Grafana Dashboard Queries
-
-Once Prometheus is scraping, use these PromQL queries in Grafana:
-
-**Total API Requests (by endpoint)**
-```promql
-sum by (endpoint) (cv_api_requests_total)
-```
-
-**Request Rate (5-minute window)**
-```promql
-rate(cv_api_requests_total[5m])
-```
-
-**P95 Request Latency**
-```promql
-histogram_quantile(0.95, rate(cv_api_request_duration_seconds_bucket[5m]))
-```
-
-**Unique Visitors**
-```promql
-cv_visitors_total
-```
-
-**Error Rate (non-2xx responses)**
-```promql
-sum(rate(cv_api_requests_total{status_code!~"2.."}[5m])) / sum(rate(cv_api_requests_total[5m]))
-```
+| `cv_api_requests_total` | Counter | `endpoint`, `method`, `status_code` | Total HTTP requests |
+| `cv_api_request_duration_seconds` | Histogram | `endpoint` | Request duration |
+| `cv_visitors_total` | Counter | — | Unique visitors (deduplicated by IP hash in PostgreSQL) |
 
 ---
 
-## Customizing Your CV
+## Monitoring Stack (Prometheus + Grafana)
 
-All CV content is stored in the database. To update it:
+Runs as a separate Docker Compose stack on a dedicated monitoring server.
 
-1. Edit the sample data directly in `backend/seed.py`
-2. Re-run `python seed.py` (the script is idempotent — it skips existing rows)
-3. Or connect to your PostgreSQL database directly and `UPDATE` the rows
+### Setup
 
----
+```bash
+cd monitoring
 
-## Production Notes
+# 1. Set the production server IP in prometheus.yml
+#    Replace CV_API_HOST with your actual server IP or hostname
+vi prometheus.yml
 
-- Run with a production ASGI server: `uvicorn app.main:app --workers 4 --host 0.0.0.0 --port 8000`
-- Build the frontend for production: `cd frontend && npm run build` (outputs to `frontend/dist/`)
-- Serve the `dist/` folder via Nginx or configure FastAPI to serve static files
-- Use environment variables (not `.env` files) in production deployments
+# 2. Configure Grafana credentials
+cp .env.example .env
+
+# 3. Start
+docker compose -f docker-compose.monitoring.yml up -d
+```
+
+Grafana: `http://<monitoring-server>:3000`
+Prometheus: `http://<monitoring-server>:9090`
+
+### Auto-provisioned Dashboard
+
+The **"Dynamic CV — API Metrics"** dashboard loads automatically on first start (no manual import needed) via Grafana provisioning.
+
+**8 panels:**
+
+| Panel | PromQL | What it shows |
+|-------|--------|---------------|
+| Total requests | `sum(cv_api_requests_total)` | All-time request counter |
+| Unique visitors | `cv_visitors_total` | Unique IPs seen |
+| Error rate | `rate(5xx) / rate(all)` | Fraction of server errors |
+| P95 latency | `histogram_quantile(0.95, ...)` | 95th percentile response time |
+| Request rate by endpoint | `sum by (endpoint) (rate(...[5m]))` | Per-route traffic |
+| Latency P50/P95/P99 | `histogram_quantile` × 3 | Latency distribution |
+| HTTP status codes | `rate` by `2xx / 4xx / 5xx` | Response code breakdown |
+| Visitor growth | `cv_visitors_total` over time | Cumulative unique visitors |
 
 ---
 
 ## CI/CD Pipeline
 
-Every push to `main` triggers a two-job GitHub Actions workflow:
+Every push to `main` triggers `.github/workflows/deploy.yml`:
 
 ```
 push to main
     │
     ▼
 [build-and-push]
-    ├── docker build backend  → DockerHub  (sha tag + latest)
-    └── docker build frontend → DockerHub  (sha tag + latest)
+    ├── docker build backend  → DockerHub  (sha8 tag + latest)
+    └── docker build frontend → DockerHub  (sha8 tag + latest)
     │
     ▼
 [deploy]
-    ├── scp docker-compose.prod.yml → production server
-    ├── write .env from GitHub Secrets
+    ├── Install Docker on server (if not present)
+    ├── scp docker-compose.prod.yml → ~/cv-app/
+    ├── Write .env from GitHub Secrets
     ├── docker compose pull
     ├── docker compose up -d --remove-orphans
     └── docker image prune -f
@@ -224,33 +263,33 @@ push to main
 
 ### Required GitHub Secrets
 
-Go to **Settings → Secrets and variables → Actions** and add:
+**Settings → Secrets and variables → Actions → New repository secret**
 
 | Secret | Description |
 |--------|-------------|
-| `DOCKERHUB_USERNAME` | Your Docker Hub username |
-| `DOCKERHUB_TOKEN` | Docker Hub access token (not your password — create one at hub.docker.com → Account Settings → Security) |
+| `DOCKERHUB_USERNAME` | Docker Hub username |
+| `DOCKERHUB_TOKEN` | Docker Hub access token (hub.docker.com → Account Settings → Security) |
 | `PROD_HOST` | Production server IP or hostname |
-| `PROD_USER` | SSH user on the server (e.g. `ubuntu`, `root`) |
+| `PROD_USER` | SSH user (`ubuntu`, `root`, etc.) |
 | `PROD_SSH_KEY` | Private SSH key (contents of `~/.ssh/id_rsa`) |
 | `PROD_PORT` | SSH port (optional, defaults to `22`) |
 | `DB_USER` | PostgreSQL username |
 | `DB_PASSWORD` | PostgreSQL password |
 | `DB_NAME` | PostgreSQL database name |
-| `ALLOWED_ORIGINS` | Comma-separated allowed CORS origins (e.g. `https://yourdomain.com`) |
-Please note that the workflow file specifies the **"cv-devops-env"** secret environment
-### One-time server setup
+| `ALLOWED_ORIGINS` | Allowed CORS origins (not critical behind Nginx) |
 
-SSH into your production server and install Docker:
-
-```bash
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
-That's all — the pipeline handles everything else on every deploy.
+Secrets must be placed in the **`cv-devops-env`** GitHub environment (the workflow references `environment: cv-devops-env`).
 
 ### Manual trigger
 
-The workflow also has `workflow_dispatch`, so you can re-deploy any time from the GitHub Actions tab without pushing new code.
+The workflow has `workflow_dispatch` — re-deploy any time from the GitHub Actions tab without a code push.
+
+---
+
+## Customizing CV Content
+
+All content is stored in PostgreSQL. To update:
+
+1. Edit `backend/seed.py` with your real data
+2. Run `python seed.py` again — it is idempotent (skips existing rows)
+3. Or `UPDATE` rows directly in the database
