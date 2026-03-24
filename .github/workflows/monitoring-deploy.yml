@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: cv-monitoring-env
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Ensure Node 24 for JavaScript actions
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  #  Ensure Node 24 for JavaScript actions
 
     steps:
       - name: Checkout repository
