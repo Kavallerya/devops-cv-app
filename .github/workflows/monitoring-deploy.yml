@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'monitoring/**'
+      - '.github/workflows/monitoring-deploy.yml'
   workflow_dispatch:
 
 jobs:
@@ -13,7 +14,7 @@ jobs:
     name: Deploy Monitoring Stack
     runs-on: ubuntu-latest
     environment: cv-monitoring-env
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

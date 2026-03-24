@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '**'
+      - '!monitoring/**'
+      - '!.github/workflows/monitoring-deploy.yml'
   workflow_dispatch:
 
 env:
