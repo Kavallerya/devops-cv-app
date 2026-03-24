@@ -15,7 +15,6 @@ services:
     networks:
       - monitoring
 
-# Grafana configuration
   grafana:
     image: grafana/grafana:10.4.2
     restart: always
