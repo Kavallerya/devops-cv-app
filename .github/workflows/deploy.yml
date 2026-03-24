@@ -22,6 +22,8 @@ jobs:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
     environment: cv-devops-env
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Ensure Node 24 for JavaScript actions
 
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
@@ -75,6 +77,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     environment: cv-devops-env
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Ensure Node 24 for JavaScript actions
 
     steps:
       - name: Checkout repository
