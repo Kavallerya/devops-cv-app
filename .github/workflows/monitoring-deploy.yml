@@ -12,7 +12,8 @@ jobs:
   deploy-monitoring:
     name: Deploy Monitoring Stack
     runs-on: ubuntu-latest
-
+    environment: cv-monitoring-env
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
