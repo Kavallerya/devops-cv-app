@@ -48,7 +48,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Уникальных Посетителей",
+      "title": "Уникальных посетителей",
       "description": "Источник: cv_visitors_total — Counter, который инкрементируется в роутере GET /api/profile только если SHA-256 хеш IP-адреса посетителя ещё не встречался в таблице visitors (PostgreSQL). Таким образом каждый уникальный IP считается ровно один раз за всё время.",
       "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
