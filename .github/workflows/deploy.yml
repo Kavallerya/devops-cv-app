@@ -64,7 +64,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────
-  # JOB  2: Deploy to production server via SSH
+  # JOB 2: Deploy to production server via SSH
   # ─────────────────────────────────────────────
   deploy:
     name: Deploy to Production
