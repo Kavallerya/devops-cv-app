@@ -1,0 +1,75 @@
+name: Monitoring — Deploy Prometheus & Grafana
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'monitoring/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-monitoring:
+    name: Deploy Monitoring Stack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Docker if not present
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.MONITORING_HOST }}
+          username: ${{ secrets.MONITORING_USER }}
+          key: ${{ secrets.MONITORING_SSH_KEY }}
+          port: ${{ secrets.MONITORING_PORT || 22 }}
+          script: |
+            if ! command -v docker &> /dev/null; then
+              echo "Docker not found, installing..."
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker $USER
+              newgrp docker
+              echo "Docker installed: $(docker --version)"
+            else
+              echo "Docker already installed: $(docker --version)"
+            fi
+
+      - name: Substitute env vars in prometheus.yml
+        env:
+          CV_API_HOST: ${{ secrets.CV_API_HOST }}
+        run: |
+          envsubst < monitoring/prometheus.yml > monitoring/prometheus.rendered.yml
+          mv monitoring/prometheus.rendered.yml monitoring/prometheus.yml
+
+      - name: Copy monitoring config to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.MONITORING_HOST }}
+          username: ${{ secrets.MONITORING_USER }}
+          key: ${{ secrets.MONITORING_SSH_KEY }}
+          port: ${{ secrets.MONITORING_PORT || 22 }}
+          source: monitoring/
+          target: ~/monitoring/
+          strip_components: 1
+
+      - name: Deploy monitoring stack
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.MONITORING_HOST }}
+          username: ${{ secrets.MONITORING_USER }}
+          key: ${{ secrets.MONITORING_SSH_KEY }}
+          port: ${{ secrets.MONITORING_PORT || 22 }}
+          script: |
+            set -e
+            cd ~/monitoring
+
+            cat > .env <<EOF
+            GRAFANA_USER=${{ secrets.GRAFANA_USER }}
+            GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
+            CV_API_HOST=${{ secrets.CV_API_HOST }}
+            EOF
+
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -f
