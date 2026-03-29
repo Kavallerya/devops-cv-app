@@ -222,7 +222,7 @@ push to main
     └── docker image prune -f
 ```
 
-### Required GitHub  Secrets
+### Required GitHub Secrets
 
 Go to **Settings → Secrets and variables → Actions** and add:
 
