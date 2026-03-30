@@ -15,6 +15,7 @@ services:
     networks:
       - monitoring
 
+
   grafana:
     image: grafana/grafana:10.4.0
     restart: always
