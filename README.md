@@ -1,8 +1,49 @@
-# Dynamic CV as an API
+# Project Name - Legacy v1
 
-A full-stack resume application serving your CV as a REST API, with a React frontend and Prometheus metrics ready for Grafana dashboarding.
+> [!WARNING]
+> **Legacy Architecture Branch (`v1-docker-compose`)**
+> 
+> This branch contains the initial, legacy version of our application. It uses a monolithic Docker Compose setup, manual provisioning (ClickOps), and push-based deployments via GitHub Actions.
+> 
+> **For the modern, Enterprise-grade GitOps & Kubernetes version, please refer to the `main` branch.**
 
-**Stack:** Python 3.11+ · FastAPI · SQLAlchemy (async) · PostgreSQL · React 18 · Vite · prometheus-client
+## Project Overview & Tech Stack
+
+A full-stack resume application serving your CV as a REST API, with a React frontend and Prometheus metrics ready for Grafana dashboarding. The application is composed of a responsive frontend, a robust backend API, and a relational database, fully containerized to ensure consistent behavior across different environments.
+
+**Technologies Used:**
+- **Backend:** Python 3.11+ · FastAPI · SQLAlchemy (async) · PostgreSQL
+- **Frontend:** React 18 · Vite · Node.js (served via Nginx)
+- **Monitoring:** Prometheus · Grafana
+- **Containerization:** Docker · Docker Compose
+- **CI/CD & Hosting:** GitHub Actions · AWS EC2
+
+---
+
+## v1 Architecture (Push-based)
+
+The infrastructure in this `v1-docker-compose` branch represents our initial working MVP:
+- **Hosting:** The application is hosted on an AWS EC2 instance.
+- **Orchestration:** We use Docker Compose (`docker-compose.prod.yml`) to manage the lifecycle of our containers (Frontend, Backend, Database, and Monitoring) on a single node.
+- **CI/CD Pipeline:** We use GitHub Actions for continuous integration and deployment. The pipeline builds the Docker images, pushes them to Docker Hub, and then connects to the EC2 server via SSH. It pulls the latest images and runs `docker compose up -d` to deploy. This is a classic **push-based** deployment model.
+
+---
+
+## The Evolution: Why We Moved to Kubernetes
+
+While the v1 architecture served us well as an MVP, it presented several limitations that hindered scalability, security, and maintainability. The transition to the `main` branch demonstrates maturity and adherence to modern Cloud-Native and FinOps best practices.
+
+Here is why this architecture was deprecated:
+
+*   **ClickOps vs. IaC:** 
+    *   *v1 (Legacy):* The AWS EC2 infrastructure and networking were manually provisioned via the AWS Console ("ClickOps"). This approach is error-prone, hard to reproduce, and difficult to audit.
+    *   *v2 (Modern):* Uses Terraform for declarative Infrastructure as Code (IaC), ensuring our infrastructure is version-controlled, automated, and repeatable.
+*   **Push vs. Pull (GitOps):** 
+    *   *v1 (Legacy):* Uses a push-based CI/CD approach. GitHub Actions holds SSH keys and directly executes commands on the production server. This introduces a significant security risk and couples the CI system tightly with the production environment.
+    *   *v2 (Modern):* Implements a secure, pull-based GitOps approach using ArgoCD. The cluster pulls its desired state directly from Git, removing the need to expose production credentials to the CI pipeline.
+*   **Docker Compose vs. Kubernetes:** 
+    *   *v1 (Legacy):* Docker Compose on a single EC2 instance creates a single point of failure. Scaling requires manual intervention and results in downtime during deployments.
+    *   *v2 (Modern):* Uses Google Kubernetes Engine (GKE) for high availability. It provides self-healing, automated horizontal scaling, and zero-downtime rolling updates, ensuring enterprise-grade reliability.
 
 ---
 
@@ -59,20 +100,61 @@ app-devops/
 
 ## Local Development
 
-### Prerequisites
+To test this legacy setup on your local machine, you have two options: running with Docker Compose or running components independently.
 
+### Option A: Run with Docker Compose (Recommended)
+
+1.  **Clone this specific branch:**
+    ```bash
+    git clone -b v1-docker-compose https://github.com/your-username/devops-cv-app.git
+    cd devops-cv-app
+    ```
+
+2.  **Set up the environment variables:**
+    Copy the example environment file and fill in your desired values.
+    ```bash
+    cp .env.example .env
+    ```
+    Ensure the following variables are set in your `.env` file:
+    ```env
+    DB_USER=postgres
+    DB_PASSWORD=password
+    DB_NAME=cv_db
+    DB_PORT=5432
+    ```
+
+3.  **Start the application:**
+    Run Docker Compose to build and start the services.
+    ```bash
+    docker-compose up --build
+    ```
+
+4.  **Access the application:**
+    - Frontend: `http://localhost:80`
+    - Backend API: `http://localhost:8000`
+    - API Documentation (Swagger): `http://localhost:8000/docs`
+
+5.  **Tear down:**
+    To stop and remove the containers, networks, and volumes (optional):
+    ```bash
+    docker-compose down -v
+    ```
+
+### Option B: Run Without Docker (Local Dev)
+
+#### Prerequisites
 - Python 3.11+
 - Node.js 18+
 - PostgreSQL (local or remote)
 
-### 1. Database Setup
+#### 1. Database Setup
 
 Create the database:
 ```sql
 CREATE DATABASE cv_db;
 ```
 
-### 2. Backend
+#### 2. Backend
 
 ```bash
 cd backend
@@ -98,10 +180,7 @@ python seed.py
 uvicorn app.main:app --reload --port 8000
 ```
 
-API will be available at `http://localhost:8000`
-Swagger UI at `http://localhost:8000/api/docs`
-
-### 3. Frontend
+#### 3. Frontend
 
 ```bash
 cd frontend
@@ -109,8 +188,7 @@ npm install
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:5173`
-The Vite dev proxy forwards `/api/*` requests to the backend automatically.
+Frontend will be available at `http://localhost:5173`. The Vite dev proxy forwards `/api/*` requests to the backend automatically.
 
 ---
 
@@ -153,32 +231,7 @@ scrape_configs:
 
 ### Grafana Dashboard Queries
 
-Once Prometheus is scraping, use these PromQL queries in Grafana:
-
-**Total API Requests (by endpoint)**
-```promql
-sum by (endpoint) (cv_api_requests_total)
-```
-
-**Request Rate (5-minute window)**
-```promql
-rate(cv_api_requests_total[5m])
-```
-
-**P95 Request Latency**
-```promql
-histogram_quantile(0.95, rate(cv_api_request_duration_seconds_bucket[5m]))
-```
-
-**Unique Visitors**
-```promql
-cv_visitors_total
-```
-
-**Error Rate (non-2xx responses)**
-```promql
-sum(rate(cv_api_requests_total{status_code!~"2.."}[5m])) / sum(rate(cv_api_requests_total[5m]))
-```
+Once Prometheus is scraping, use PromQL queries in Grafana to monitor requests, rate, and latency.
 
 ---
 
@@ -205,7 +258,7 @@ All CV content is stored in the database. To update it:
 
 Every push to `main` triggers a two-job GitHub Actions workflow:
 
-```
+```text
 push to main
     │
     ▼
@@ -238,7 +291,9 @@ Go to **Settings → Secrets and variables → Actions** and add:
 | `DB_PASSWORD` | PostgreSQL password |
 | `DB_NAME` | PostgreSQL database name |
 | `ALLOWED_ORIGINS` | Comma-separated allowed CORS origins (e.g. `https://yourdomain.com`) |
-Please note that the workflow file specifies the **"cv-devops-env"** secret environment
+
+Please note that the workflow file specifies the **"cv-devops-env"** secret environment.
+
 ### One-time server setup
 
 SSH into your production server and install Docker:
