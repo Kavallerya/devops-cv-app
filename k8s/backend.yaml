@@ -19,7 +19,7 @@ kind: Deployment
 metadata:
   name: backend
 spec:
-  replicas: 2 # BEST PRACTICE: Запускаємо 2 копії для High Availability (відмовостійкості)!
+  replicas: 1 # BEST PRACTICE: Запускаємо 2 копії для High Availability (відмовостійкості)!
   selector:
     matchLabels:
       app: backend
