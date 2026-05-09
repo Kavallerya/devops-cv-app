@@ -34,6 +34,10 @@ spec:
           image: kavallerya/cv-backend:latest 
           ports:
             - containerPort: 8000
+          resources:
+            requests:
+              cpu: "100m"     # 10% ядра процесора
+              memory: "128Mi" # 128 Мегабайт пам'яті
           
           # Передаємо змінні середовища
           env:

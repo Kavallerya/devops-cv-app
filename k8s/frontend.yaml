@@ -34,7 +34,10 @@ spec:
           image: kavallerya/cv-frontend:latest
           ports:
             - containerPort: 80
-          
+          resources:
+            requests:
+              cpu: "50m"      # Всього 5% від одного ядра процесора!
+              memory: "64Mi"  # 64 Мегабайти оперативки
           # Оскільки фронтенд (Nginx) дуже легкий, проби для нього простіші
           livenessProbe:
             httpGet:
