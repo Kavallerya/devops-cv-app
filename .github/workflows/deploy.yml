@@ -1,5 +1,4 @@
-#.github/workflows/deploy.yaml
-name: CI/CD — Build, Push & Deploy
+name: CI/CD — Build, Push & GitOps Deploy
 
 on:
   push:
@@ -9,6 +8,7 @@ on:
       - '**'
       - '!monitoring/**'
       - '!.github/workflows/monitoring-deploy.yml'
+      - '!k8s/**' # Додали виняток, щоб пайплайн не реагував на зміни самих маніфестів
   workflow_dispatch:
 
 env:
@@ -17,14 +17,14 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────
-  # JOB 1: Build & push images to Docker Hub
+  # JOB 1: Build & push images to Docker Hub (БЕЗ ЗМІН)
   # ─────────────────────────────────────────────
   build-and-push:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
     environment: cv-devops-env
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Ensure Node 24 for JavaScript actions
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
@@ -71,72 +71,40 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────
-  # JOB 2: Deploy to production server via SSH
+  # JOB 2: GitOps — Update K8s Manifests 
   # ─────────────────────────────────────────────
-  deploy:
-    name: Deploy to Production
+  update-k8s-manifests:
+    name: Update K8s Manifests
     runs-on: ubuntu-latest
     needs: build-and-push
     environment: cv-devops-env
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Ensure Node 24 for JavaScript actions
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Copy docker-compose.prod.yml to server
-        uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          port: ${{ secrets.PROD_PORT || 22 }}
-          source: docker-compose.prod.yml
-          target: ~/cv-app/
+          token: ${{ secrets.GITHUB_TOKEN }} # Стандартний токен для пушу
 
-      - name: Install Docker if not present
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          port: ${{ secrets.PROD_PORT || 22 }}
-          script: |
-            if ! command -v docker &> /dev/null; then
-              echo "Docker not found, installing..."
-              curl -fsSL https://get.docker.com | sh
-              sudo usermod -aG docker $USER
-              newgrp docker
-              echo "Docker installed: $(docker --version)"
-            else
-              echo "Docker already installed: $(docker --version)"
-            fi
+      - name: Update image tags in Kubernetes manifests
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          # Використовуємо sed для пошуку і заміни рядка image: у файлах
+          sed -i "s|image: $DOCKER_USER/cv-backend:.*|image: $DOCKER_USER/cv-backend:$IMAGE_TAG|g" k8s/backend.yaml
+          sed -i "s|image: $DOCKER_USER/cv-frontend:.*|image: $DOCKER_USER/cv-frontend:$IMAGE_TAG|g" k8s/frontend.yaml
 
-      - name: Deploy on production server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          port: ${{ secrets.PROD_PORT || 22 }}
-          script: |
-            set -e
-            cd ~/cv-app
-
-            # Write .env from GitHub secrets
-            cat > .env <<EOF
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
-            DB_USER=${{ secrets.DB_USER }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_NAME=${{ secrets.DB_NAME }}
-            ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
-            EOF
-
-            # Pull new images and restart changed services only
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
-
-            # Remove dangling images to free disk space
-            docker image prune -f
+      - name: Commit and push changes
+        run: |
+          # Налаштовуємо "бота", від чийого імені буде зроблено коміт
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Додаємо змінені файли
+          git add k8s/backend.yaml k8s/frontend.yaml
+          
+          # Робимо коміт з приміткою [skip ci]
+          git commit -m "chore(gitops): update images to tag ${{ needs.build-and-push.outputs.image_tag }} [skip ci]" || echo "No changes to commit"
+          
+          # Пушимо в гілку main
+          git push origin main
