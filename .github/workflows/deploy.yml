@@ -8,7 +8,6 @@ on:
       - '**'
       - '!monitoring/**'
       - '!.github/workflows/monitoring-deploy.yml'
-      - '!k8s/**' # Додали виняток, щоб пайплайн не реагував на зміни самих маніфестів
   workflow_dispatch:
 
 env:
@@ -17,7 +16,7 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────
-  # JOB 1: Build & push images to Docker Hub (БЕЗ ЗМІН)
+  # JOB 1: Build & push images to Docker Hub (Без змін)
   # ─────────────────────────────────────────────
   build-and-push:
     name: Build & Push Docker Images
@@ -71,44 +70,36 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────
-  # JOB 2: GitOps — Update K8s Manifests 
+  # JOB 2: GitOps — Update Infra Repository
   # ─────────────────────────────────────────────
-  update-k8s-manifests:
-    name: Update K8s Manifests
+  update-infra-repo:
+    name: Update K8s Manifests in Infra Repo
     runs-on: ubuntu-latest
     needs: build-and-push
     environment: cv-devops-env
-    
-    # ОСЬ ЦЯ МАГІЯ БЕЗПЕКИ:
-    permissions:
-      contents: write  # Даємо право тільки на запис коду і тільки цій джобі!
 
     steps:
-      - name: Checkout repository
+      - name: Checkout INFRA repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }} # Стандартний токен для пушу
+          repository: 'Kavallerya/devops-cv-app-infra' # Клонуємо новий репозиторій
+          token: ${{ secrets.INFRA_REPO_TOKEN }}       # Використовуємо ключ від бункера
 
       - name: Update image tags in Kubernetes manifests
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
           DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          # Використовуємо sed для пошуку і заміни рядка image: у файлах
           sed -i "s|image: $DOCKER_USER/cv-backend:.*|image: $DOCKER_USER/cv-backend:$IMAGE_TAG|g" k8s/backend.yaml
           sed -i "s|image: $DOCKER_USER/cv-frontend:.*|image: $DOCKER_USER/cv-frontend:$IMAGE_TAG|g" k8s/frontend.yaml
 
       - name: Commit and push changes
         run: |
-          # Налаштовуємо "бота", від чийого імені буде зроблено коміт
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Додаємо змінені файли
           git add k8s/backend.yaml k8s/frontend.yaml
           
-          # Робимо коміт з приміткою [skip ci]
-          git commit -m "chore(gitops): update images to tag ${{ needs.build-and-push.outputs.image_tag }} [skip ci]" || echo "No changes to commit"
-          
-          # Пушимо в гілку main
+          # Нам більше не потрібен [skip ci], бо в інфра-репозиторії немає пайплайнів
+          git commit -m "chore(gitops): update images to tag ${{ needs.build-and-push.outputs.image_tag }}" || echo "No changes to commit"
           git push origin main
