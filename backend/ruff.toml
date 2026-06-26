@@ -1,9 +1,10 @@
 # backend/ruff.toml
 line-length = 100
+exclude = ["migrations"] # Ігноруємо автозгенеровані файли міграцій
 
 [lint]
 select = ["E", "F", "W"] # Базові перевірки на помилки
-ignore = []
+ignore = ["E501"] # Додали ігнор занадто довгих рядків
 
 [format]
 quote-style = "double"

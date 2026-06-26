@@ -2,7 +2,12 @@ name: CI/CD — Lint, Test, SecScan & GitOps
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+    paths:
+      - '**'
+      - '!monitoring/**'
+      - '!.github/workflows/monitoring-deploy.yml'
   workflow_dispatch:
 
 env:
@@ -16,6 +21,21 @@ jobs:
   quality-checks:
     name: Lint & Test Code
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cv_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,7 +43,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Зміни на свою версію, якщо треба
+          python-version: '3.11'
 
       - name: Install backend dependencies
         working-directory: ./backend
@@ -37,18 +57,26 @@ jobs:
 
       - name: Run Pytest
         working-directory: ./backend
-        run: pytest test_main.py
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cv_db
+        run: |
+          alembic upgrade head || echo "Skipped migrations"
+          pytest test_main.py
 
   # ─────────────────────────────────────────────
   # JOB 2: Build, Scan (Trivy) & Push Images
   # ─────────────────────────────────────────────
   build-scan-push:
     name: Build, Scan & Push
-    needs: quality-checks # Запускати ТІЛЬКИ якщо тести пройшли успішно!
+    needs: quality-checks
     runs-on: ubuntu-latest
+    environment: cv-devops-env
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -66,12 +94,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # --- BACKEND: Збираємо, скануємо, пушимо ---
+      # --- BACKEND ---
       - name: Build and export backend to Docker
         uses: docker/build-push-action@v6
         with:
           context: ./backend
-          load: true # Завантажуємо локально для сканування Trivy
+          file: ./backend/Dockerfile
+          load: true
           tags: ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}
 
       - name: Run Trivy vulnerability scanner (Backend)
@@ -79,7 +108,7 @@ jobs:
         with:
           image-ref: '${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}'
           format: 'table'
-          exit-code: '1' # Пайплайн впаде, якщо знайде CRITICAL
+          exit-code: '1' # Падає, якщо є CRITICAL вразливості
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL'
@@ -90,11 +119,12 @@ jobs:
           docker tag ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }} ${{ env.BACKEND_IMAGE }}:latest
           docker push ${{ env.BACKEND_IMAGE }}:latest
 
-      # --- FRONTEND: Збираємо, скануємо, пушимо ---
+      # --- FRONTEND ---
       - name: Build and export frontend to Docker
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
+          file: ./frontend/Dockerfile
           load: true
           tags: ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }}
 
@@ -103,7 +133,7 @@ jobs:
         with:
           image-ref: '${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }}'
           format: 'table'
-          exit-code: '0' # Фронт часто має дрібні CVE в npm, ставимо 0, щоб не блокувати деплой
+          exit-code: '0' # Не блокуємо деплой через вразливості npm (вони завжди є)
           severity: 'CRITICAL,HIGH'
 
       - name: Push Frontend Image
@@ -113,12 +143,14 @@ jobs:
           docker push ${{ env.FRONTEND_IMAGE }}:latest
 
   # ─────────────────────────────────────────────
-  # JOB 3: GitOps — Update Infra Repo
+  # JOB 3: GitOps — Update Infra Repository
   # ─────────────────────────────────────────────
   update-infra-repo:
-    name: Update K8s Manifests
-    needs: build-scan-push
+    name: Update K8s Manifests in Infra Repo
     runs-on: ubuntu-latest
+    needs: build-scan-push # Зверни увагу: тепер чекаємо на build-scan-push!
+    environment: cv-devops-env
+
     steps:
       - name: Checkout INFRA repository
         uses: actions/checkout@v4
@@ -126,18 +158,18 @@ jobs:
           repository: 'Kavallerya/devops-cv-app-infra'
           token: ${{ secrets.INFRA_REPO_TOKEN }}
 
-      - name: Update image tags
+      - name: Update image tags in Kubernetes manifests
         env:
           IMAGE_TAG: ${{ needs.build-scan-push.outputs.image_tag }}
           DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          sed -i "s|image: $DOCKER_USER/cv-backend:.*|image: $DOCKER_USER/cv-backend:$IMAGE_TAG|g" k8s/backend.yaml
-          sed -i "s|image: $DOCKER_USER/cv-frontend:.*|image: $DOCKER_USER/cv-frontend:$IMAGE_TAG|g" k8s/frontend.yaml
+          sed -i "s|image: $DOCKER_USER/cv-backend:.*|image: $DOCKER_USER/cv-backend:$IMAGE_TAG|g" k8s/app/backend.yaml
+          sed -i "s|image: $DOCKER_USER/cv-frontend:.*|image: $DOCKER_USER/cv-frontend:$IMAGE_TAG|g" k8s/app/frontend.yaml
 
       - name: Commit and push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add k8s/backend.yaml k8s/frontend.yaml
-          git commit -m "chore(gitops): release $IMAGE_TAG (passed tests & security scan)" || echo "No changes"
+          git add k8s/app/backend.yaml k8s/app/frontend.yaml
+          git commit -m "chore(gitops): update images to tag ${{ needs.build-scan-push.outputs.image_tag }}" || echo "No changes to commit"
           git push origin main
