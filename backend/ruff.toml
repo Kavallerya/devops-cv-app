@@ -1,0 +1,9 @@
+# backend/ruff.toml
+line-length = 100
+
+[lint]
+select = ["E", "F", "W"] # Базові перевірки на помилки
+ignore = []
+
+[format]
+quote-style = "double"

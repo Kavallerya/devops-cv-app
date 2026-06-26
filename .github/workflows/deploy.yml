@@ -1,13 +1,8 @@
-name: CI/CD — Build, Push & GitOps Deploy
+name: CI/CD — Lint, Test, SecScan & GitOps
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - '**'
-      - '!monitoring/**'
-      - '!.github/workflows/monitoring-deploy.yml'
+    branches: [ main ]
   workflow_dispatch:
 
 env:
@@ -16,18 +11,44 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────
-  # JOB 1: Build & push images to Docker Hub (Без змін)
+  # JOB 1: Code Quality (Linting & Testing)
   # ─────────────────────────────────────────────
-  build-and-push:
-    name: Build & Push Docker Images
+  quality-checks:
+    name: Lint & Test Code
     runs-on: ubuntu-latest
-    environment: cv-devops-env
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Зміни на свою версію, якщо треба
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: |
+          pip install -r requirements.txt
+          pip install ruff pytest httpx
+
+      - name: Run Ruff Linter
+        working-directory: ./backend
+        run: ruff check .
+
+      - name: Run Pytest
+        working-directory: ./backend
+        run: pytest test_main.py
+
+  # ─────────────────────────────────────────────
+  # JOB 2: Build, Scan (Trivy) & Push Images
+  # ─────────────────────────────────────────────
+  build-scan-push:
+    name: Build, Scan & Push
+    needs: quality-checks # Запускати ТІЛЬКИ якщо тести пройшли успішно!
+    runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,58 +57,78 @@ jobs:
         id: meta
         run: echo "tag=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & push backend
+      # --- BACKEND: Збираємо, скануємо, пушимо ---
+      - name: Build and export backend to Docker
         uses: docker/build-push-action@v6
         with:
           context: ./backend
-          file: ./backend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}
-            ${{ env.BACKEND_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          load: true # Завантажуємо локально для сканування Trivy
+          tags: ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}
 
-      - name: Build & push frontend
+      - name: Run Trivy vulnerability scanner (Backend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}'
+          format: 'table'
+          exit-code: '1' # Пайплайн впаде, якщо знайде CRITICAL
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
+
+      - name: Push Backend Image
+        run: |
+          docker push ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}
+          docker tag ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }} ${{ env.BACKEND_IMAGE }}:latest
+          docker push ${{ env.BACKEND_IMAGE }}:latest
+
+      # --- FRONTEND: Збираємо, скануємо, пушимо ---
+      - name: Build and export frontend to Docker
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }}
-            ${{ env.FRONTEND_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          load: true
+          tags: ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }}
+
+      - name: Run Trivy vulnerability scanner (Frontend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }}'
+          format: 'table'
+          exit-code: '0' # Фронт часто має дрібні CVE в npm, ставимо 0, щоб не блокувати деплой
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Frontend Image
+        run: |
+          docker push ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }}
+          docker tag ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }} ${{ env.FRONTEND_IMAGE }}:latest
+          docker push ${{ env.FRONTEND_IMAGE }}:latest
 
   # ─────────────────────────────────────────────
-  # JOB 2: GitOps — Update Infra Repository
+  # JOB 3: GitOps — Update Infra Repo
   # ─────────────────────────────────────────────
   update-infra-repo:
-    name: Update K8s Manifests in Infra Repo
+    name: Update K8s Manifests
+    needs: build-scan-push
     runs-on: ubuntu-latest
-    needs: build-and-push
-    environment: cv-devops-env
-
     steps:
       - name: Checkout INFRA repository
         uses: actions/checkout@v4
         with:
-          repository: 'Kavallerya/devops-cv-app-infra' # Клонуємо новий репозиторій
-          token: ${{ secrets.INFRA_REPO_TOKEN }}       # Використовуємо ключ від бункера
+          repository: 'Kavallerya/devops-cv-app-infra'
+          token: ${{ secrets.INFRA_REPO_TOKEN }}
 
-      - name: Update image tags in Kubernetes manifests
+      - name: Update image tags
         env:
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          IMAGE_TAG: ${{ needs.build-scan-push.outputs.image_tag }}
           DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           sed -i "s|image: $DOCKER_USER/cv-backend:.*|image: $DOCKER_USER/cv-backend:$IMAGE_TAG|g" k8s/backend.yaml
@@ -97,9 +138,6 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
           git add k8s/backend.yaml k8s/frontend.yaml
-          
-          # Нам більше не потрібен [skip ci], бо в інфра-репозиторії немає пайплайнів
-          git commit -m "chore(gitops): update images to tag ${{ needs.build-and-push.outputs.image_tag }}" || echo "No changes to commit"
+          git commit -m "chore(gitops): release $IMAGE_TAG (passed tests & security scan)" || echo "No changes"
           git push origin main
