@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Dynamic CV API",
     version="1.0.0",
-    description="Resume served as a REST API with Prometheus metrics support.",
+    description="Resume served as a REST API with Prometheus metrics support..",
     lifespan=lifespan,
 )
 
