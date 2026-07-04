@@ -11,9 +11,9 @@ from app.models import Base, Profile, Experience, Skill, Project, Education
 
 PROFILE_DATA = {
     "name": "Illya",
-    "title": "DevOps Engineer | Cloud & GitOps Enthusiast",
+    "title": "Junior DevOps Engineer | Cloud & GitOps Enthusiast",
     "summary": (
-        "I am a results-driven DevOps Engineer with a strong focus on "
+        "I am a results-driven Junior DevOps Engineer with a strong focus on "
         "Infrastructure as Code (IaC), GitOps automation, and system observability. "
         "Combining a solid academic foundation in Informatics at Collegium Da Vinci "
         "with hands-on experience in cloud-native environments, I specialize in "
@@ -21,9 +21,9 @@ PROFILE_DATA = {
         "secure, automated release pipelines. I am passionate about eliminating "
         "manual toil and ensuring high availability across multi-cloud architectures."
     ),
-    "email": "illya@imorozov.xyz",
+    "email": "contact@imorozov.xyz",
     "phone": "+48 123 456 789",
-    "location": "Pozna\u0144, Poland",
+    "location": "Remote \u2014 Pozna\u0144, Poland",
     "linkedin": "https://linkedin.com/in/illya-morozov",
     "github": "https://github.com/Kavallerya",
 }

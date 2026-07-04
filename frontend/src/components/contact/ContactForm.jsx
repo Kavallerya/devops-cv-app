@@ -33,7 +33,7 @@ export default function ContactForm() {
       <section id="contact">
         <SectionHeading badge="msg">Contact</SectionHeading>
 
-        <div className="max-w-xl mx-auto rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
+        <div className="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-6">
           {status === 'success' ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
