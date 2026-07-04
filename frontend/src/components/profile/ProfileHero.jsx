@@ -26,7 +26,7 @@ export default function ProfileHero({ data, loading }) {
         <div className="animate-pulse space-y-4 text-center">
           <div className="w-20 h-20 mx-auto rounded-full bg-surface-200 dark:bg-surface-700" />
           <div className="h-8 w-48 mx-auto rounded bg-surface-200 dark:bg-surface-700" />
-          <div className="h-4 w-32 mx-auto rounded bg-surface-200 dark:bg-surface-700" />
+          <div className="h-4 w-64 mx-auto rounded bg-surface-200 dark:bg-surface-700" />
           <div className="h-16 w-96 max-w-full mx-auto rounded bg-surface-200 dark:bg-surface-700" />
         </div>
       </section>
@@ -51,7 +51,20 @@ export default function ProfileHero({ data, loading }) {
         <p className="text-lg text-accent-600 dark:text-accent-400 font-medium mt-1">
           {data.title}
         </p>
-        <p className="max-w-2xl mx-auto text-surface-500 dark:text-surface-400 mt-4 leading-relaxed text-sm sm:text-base">
+
+        {data.location && (
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1 font-mono">
+            📍 {data.location}
+          </p>
+        )}
+
+        <p className="max-w-2xl mx-auto text-surface-500 dark:text-surface-400 mt-4 leading-relaxed text-sm">
+          Building scalable infrastructure, automating complex workflows, and enforcing
+          clean CI/CD pipelines. This interactive portfolio is self-hosted, containerized,
+          and deployed via ArgoCD on a Kubernetes cluster.
+        </p>
+
+        <p className="max-w-2xl mx-auto text-surface-500 dark:text-surface-400 mt-3 leading-relaxed text-sm">
           {data.summary}
         </p>
 

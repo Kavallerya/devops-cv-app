@@ -1,5 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
 import { FiActivity, FiUsers, FiClock, FiServer } from 'react-icons/fi'
 import { fetchStatus } from '../../api/dashboardApi'
 import ScrollReveal from '../ui/ScrollReveal'
@@ -90,7 +89,7 @@ export default function MetricsBar() {
             <MetricCard
               icon={FiServer}
               label="Deployed on"
-              value="GKE"
+              value="GCP GKE"
               delay={0.3}
             />
           </>

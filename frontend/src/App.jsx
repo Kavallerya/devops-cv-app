@@ -7,9 +7,9 @@ import ProfileHero from './components/profile/ProfileHero'
 import SkillsDashboard from './components/skills/SkillsDashboard'
 import ExperienceTimeline from './components/experience/ExperienceTimeline'
 import GitHubActivity from './components/github/GitHubActivity'
-import ArchitectureShowcase from './components/architecture/ArchitectureShowcase'
+import ArchitectureModal from './components/architecture/ArchitectureModal'
 import ProjectsGrid from './components/projects/ProjectsGrid'
-import CertificationsGrid from './components/certifications/CertificationsGrid'
+import Education from './components/education/Education'
 import ContactForm from './components/contact/ContactForm'
 
 export default function App() {
@@ -18,6 +18,7 @@ export default function App() {
   const [skills, setSkills] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showArchitecture, setShowArchitecture] = useState(false)
 
   useEffect(() => {
     const loadAll = async () => {
@@ -42,7 +43,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col dark:bg-surface-950 bg-surface-50">
-      <Header />
+      <Header onOpenArchitecture={() => setShowArchitecture(true)} />
 
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-14">
         {error && (
@@ -56,13 +57,17 @@ export default function App() {
         <SkillsDashboard data={skills} loading={loading} />
         <ExperienceTimeline data={experience} loading={loading} />
         <GitHubActivity />
-        <ArchitectureShowcase />
         <ProjectsGrid />
-        <CertificationsGrid />
+        <Education />
         <ContactForm />
       </main>
 
       <Footer />
+
+      <ArchitectureModal
+        open={showArchitecture}
+        onClose={() => setShowArchitecture(false)}
+      />
     </div>
   )
 }

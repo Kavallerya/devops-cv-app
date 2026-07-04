@@ -6,137 +6,109 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from sqlalchemy import select
 from app.database import AsyncSessionLocal, engine
-from app.models import Base, Profile, Experience, Skill, Certification, Project
+from app.models import Base, Profile, Experience, Skill, Project, Education
 
 
 PROFILE_DATA = {
-    "name": "Illia Morozov",
-    "title": "DevOps / Platform Engineer",
+    "name": "Illya",
+    "title": "Junior DevOps Engineer | Cloud & GitOps Enthusiast",
     "summary": (
-        "DevOps engineer building and maintaining cloud-native "
-        "infrastructure. Passionate about CI/CD automation, observability, and developer experience. "
-        "Open source contributor and infrastructure-as-code advocate."
+        "I am a results-driven Junior DevOps Engineer with a strong focus on "
+        "Infrastructure as Code (IaC), GitOps automation, and system observability. "
+        "Combining a solid academic foundation in Informatics at Collegium Da Vinci "
+        "with hands-on experience in cloud-native environments, I specialize in "
+        "containerizing microservices, managing Kubernetes clusters, and building "
+        "secure, automated release pipelines. I am passionate about eliminating "
+        "manual toil and ensuring high availability across multi-cloud architectures."
     ),
-    "email": "illia.morozov@example.com",
-    "phone": "+1 (555) 123-4567",
-    "location": "Remote — Warsaw, Poland",
-    "linkedin": "https://linkedin.com/in/illia-morozov",
-    "github": "https://github.com/illia-morozov",
+    "email": "illya@imorozov.xyz",
+    "phone": "+48 123 456 789",
+    "location": "Pozna\u0144, Poland",
+    "linkedin": "https://linkedin.com/in/illya-morozov",
+    "github": "https://github.com/Kavallerya",
 }
 
 EXPERIENCE_DATA = [
     {
-        "company": "CloudScale Inc.",
-        "role": "Senior DevOps Engineer",
-        "start_date": "2022-01",
+        "company": "Self-Hosted / Personal Infrastructure",
+        "role": "DevOps Engineer (Pet Projects)",
+        "start_date": "2025-01",
         "end_date": None,
         "description": (
-            "Leading the migration of a monolithic application to a microservices architecture on Kubernetes. "
-            "Designed and implemented CI/CD pipelines using GitHub Actions and ArgoCD. "
-            "Reduced deployment time by 70% and improved system uptime to 99.95%."
+            "Built and deployed a full-stack Dynamic CV platform on GCP GKE with GitOps-driven CI/CD. "
+            "Automated infrastructure provisioning with Terraform, implemented container vulnerability "
+            "scanning with Trivy, and set up comprehensive observability with Prometheus, Loki, and "
+            "Grafana. Configured Dex OIDC authentication with GitHub for secure dashboard access."
         ),
         "order": 1,
     },
     {
-        "company": "DataStream Ltd.",
-        "role": "DevOps Engineer",
-        "start_date": "2020-03",
-        "end_date": "2021-12",
+        "company": "Freelance / Volunteer Projects",
+        "role": "Linux Server Administrator",
+        "start_date": "2023-06",
+        "end_date": "2024-12",
         "description": (
-            "Built and maintained infrastructure on AWS using Terraform and Ansible. "
-            "Implemented centralized logging with ELK Stack and monitoring with Prometheus and Grafana. "
-            "Automated infrastructure provisioning reducing manual effort by 80%."
+            "Administered and optimized remote Linux environments (Ubuntu/Debian) for high-load "
+            "multiplayer game servers. Developed Bash scripts to automate server provisioning, "
+            "routine restarts, and dynamic configuration updates. Configured Cloudflare DNS and "
+            "analyzed OS-level network routing to mitigate latency and ensure high availability."
         ),
         "order": 2,
-    },
-    {
-        "company": "WebApps Studio",
-        "role": "Junior Systems Administrator",
-        "start_date": "2018-06",
-        "end_date": "2020-02",
-        "description": (
-            "Managed on-premise Linux servers and administered databases (PostgreSQL, MySQL). "
-            "Introduced basic CI/CD with Jenkins and Docker, cutting release cycles from weekly to daily. "
-            "Wrote internal documentation and runbooks for the operations team."
-        ),
-        "order": 3,
     },
 ]
 
 SKILLS_DATA = [
-    {"category": "Cloud & Infrastructure", "name": "AWS (EC2, S3, RDS, EKS)", "level": "expert"},
-    {"category": "Cloud & Infrastructure", "name": "Terraform", "level": "expert"},
-    {"category": "Cloud & Infrastructure", "name": "Ansible", "level": "intermediate"},
-    {"category": "Containers & Orchestration", "name": "Docker", "level": "expert"},
-    {"category": "Containers & Orchestration", "name": "Kubernetes", "level": "expert"},
-    {"category": "Containers & Orchestration", "name": "Helm", "level": "intermediate"},
-    {"category": "CI/CD", "name": "GitHub Actions", "level": "expert"},
-    {"category": "CI/CD", "name": "ArgoCD", "level": "intermediate"},
-    {"category": "CI/CD", "name": "Jenkins", "level": "intermediate"},
-    {"category": "Observability", "name": "Prometheus", "level": "expert"},
-    {"category": "Observability", "name": "Grafana", "level": "expert"},
-    {"category": "Observability", "name": "ELK Stack", "level": "intermediate"},
-    {"category": "Programming", "name": "Python", "level": "expert"},
-    {"category": "Programming", "name": "Bash / Shell scripting", "level": "expert"},
-    {"category": "Programming", "name": "Go", "level": "beginner"},
-    {"category": "Databases", "name": "PostgreSQL", "level": "intermediate"},
-    {"category": "Databases", "name": "Redis", "level": "intermediate"},
-    {"category": "Databases", "name": "MongoDB", "level": "beginner"},
+    {"category": "Orchestration & Containerization", "name": "Kubernetes (K8s)"},
+    {"category": "Orchestration & Containerization", "name": "Docker"},
+    {"category": "Orchestration & Containerization", "name": "Docker Compose"},
+    {"category": "Orchestration & Containerization", "name": "Helm"},
+    {"category": "CI/CD & GitOps", "name": "GitHub Actions"},
+    {"category": "CI/CD & GitOps", "name": "GitLab CI/CD"},
+    {"category": "CI/CD & GitOps", "name": "ArgoCD"},
+    {"category": "Infrastructure & Cloud", "name": "Terraform"},
+    {"category": "Infrastructure & Cloud", "name": "GCP (GKE, Compute Engine)"},
+    {"category": "Infrastructure & Cloud", "name": "AWS (EC2, IAM, VPC)"},
+    {"category": "Infrastructure & Cloud", "name": "Cloudflare (DNS, WAF, Tunnels)"},
+    {"category": "Observability", "name": "Prometheus"},
+    {"category": "Observability", "name": "Grafana"},
+    {"category": "Observability", "name": "Loki"},
+    {"category": "Observability", "name": "ELK / EFK Stack"},
+    {"category": "DevSecOps & Code Quality", "name": "Trivy"},
+    {"category": "DevSecOps & Code Quality", "name": "Ruff / Flake8 / Black"},
+    {"category": "DevSecOps & Code Quality", "name": "mypy"},
+    {"category": "OS & Scripting", "name": "Linux (Ubuntu, Debian, CentOS/RHEL)"},
+    {"category": "OS & Scripting", "name": "Bash / Shell Scripting"},
+    {"category": "OS & Scripting", "name": "Python"},
+    {"category": "Version Control", "name": "Git / GitHub / GitLab"},
+    {"category": "Databases", "name": "PostgreSQL"},
+    {"category": "Databases", "name": "MySQL"},
+    {"category": "Databases", "name": "Redis"},
+    {"category": "Databases", "name": "MongoDB"},
 ]
 
-CERTIFICATIONS_DATA = [
-    {
-        "name": "Certified Kubernetes Administrator (CKA)",
-        "issuer": "CNCF / The Linux Foundation",
-        "date": "2024-03",
-        "expiry_date": "2027-03",
-        "credential_url": "https://www.credly.com/example-cka",
-        "badge_url": "https://images.credly.com/cka-badge.png",
-        "order": 1,
-    },
-    {
-        "name": "AWS Solutions Architect — Associate",
-        "issuer": "Amazon Web Services",
-        "date": "2023-11",
-        "expiry_date": "2026-11",
-        "credential_url": "https://www.credly.com/example-aws-saa",
-        "badge_url": "https://images.credly.com/aws-saa-badge.png",
-        "order": 2,
-    },
-    {
-        "name": "HashiCorp Certified: Terraform Associate",
-        "issuer": "HashiCorp",
-        "date": "2023-06",
-        "expiry_date": "2025-06",
-        "credential_url": "https://www.credly.com/example-tf",
-        "badge_url": "https://images.credly.com/tf-badge.png",
-        "order": 3,
-    },
-    {
-        "name": "Certified Kubernetes Security Specialist (CKS)",
-        "issuer": "CNCF / The Linux Foundation",
-        "date": "2025-01",
-        "expiry_date": "2028-01",
-        "credential_url": "https://www.credly.com/example-cks",
-        "badge_url": "https://images.credly.com/cks-badge.png",
-        "order": 4,
-    },
-]
+CERTIFICATIONS_DATA = []
 
 PROJECTS_DATA = [
     {
-        "name": "DevOps CV Platform",
+        "name": "Dynamic CV Infrastructure & API (Self-Hosted Portfolio)",
         "description": (
-            "Full-stack CI/CD portfolio platform built with FastAPI, React, PostgreSQL, "
-            "deployed on GKE with ArgoCD GitOps. Features automated Trivy scanning, "
-            "Prometheus/Grafana observability, and Dex OIDC authentication."
+            "End-to-End GitOps Deployment & Microservices Architecture. "
+            "Designed a microservices-based portfolio using a Python FastAPI backend and a "
+            "React/Vite frontend, fully containerized via Docker. Built robust GitHub Actions "
+            "and GitLab CI/CD workflows for automated testing, code linting (Ruff, Flake8, "
+            "Black, mypy), and container vulnerability scanning (Trivy) prior to registry pushes. "
+            "Managed Kubernetes manifests using Helm and implemented automated, zero-downtime "
+            "Rolling Updates to a GCP GKE cluster via ArgoCD. Provisioned a comprehensive "
+            "monitoring stack (Prometheus, Loki, Grafana) to visualize logs, track API traffic, "
+            "and alert on system anomalies."
         ),
         "tech_stack": {
             "Backend": "Python / FastAPI",
             "Frontend": "React / Vite / Tailwind",
-            "Infra": "GCP / GKE / Terraform",
-            "CI/CD": "GitHub Actions / ArgoCD",
+            "Infra": "GCP GKE / Terraform",
+            "CI/CD": "GitHub Actions / ArgoCD / Trivy",
             "Monitoring": "Prometheus / Grafana / Loki",
+            "Auth": "Dex OIDC / GitHub",
         },
         "github_url": "https://github.com/Kavallerya/devops-cv-app",
         "live_url": "https://imorozov.xyz",
@@ -144,37 +116,40 @@ PROJECTS_DATA = [
         "order": 1,
     },
     {
-        "name": "Infrastructure as Code Toolkit",
+        "name": "Linux Server Administration & Network Optimization",
         "description": (
-            "Collection of reusable Terraform modules for GCP and AWS. Includes configurations "
-            "for GKE clusters, VPC networking, IAM with Workload Identity, "
-            "and managed database provisioning."
+            "High-Load Dedicated Server Management. "
+            "Administered and optimized remote Linux environments (Ubuntu/Debian) for high-load "
+            "multiplayer game servers. Developed Bash scripts to automate server provisioning, "
+            "routine restarts, and dynamic configuration updates. Configured Cloudflare DNS and "
+            "analyzed OS-level network routing to mitigate latency and ensure high availability "
+            "under peak loads."
         ),
         "tech_stack": {
-            "IaC": "Terraform / Terragrunt",
-            "Cloud": "GCP / AWS",
-            "Secrets": "Vault / GCP Secret Manager",
+            "OS": "Ubuntu / Debian",
+            "Scripting": "Bash / Shell",
+            "Networking": "Cloudflare DNS / WAF / Tunnels",
+            "Tools": "systemd / iptables / nginx",
         },
-        "github_url": "https://github.com/Kavallerya/devops-cv-app-infra",
+        "github_url": None,
         "live_url": None,
-        "featured": True,
+        "featured": False,
         "order": 2,
     },
+]
+
+EDUCATION_DATA = [
     {
-        "name": "Observability Stack",
+        "institution": "Collegium Da Vinci",
+        "degree": "Bachelor",
+        "field": "Informatics",
+        "period": "Pozna\u0144, Poland",
         "description": (
-            "Self-hosted monitoring stack with Prometheus for metrics, Loki for logs, "
-            "and Grafana for dashboards. Deployed via Docker Compose and Kubernetes Helm charts."
+            "Focus: Cloud Infrastructure, Systems Engineering, and Software Development. "
+            "Combines theoretical foundations with practical hands-on projects in distributed "
+            "systems and automation."
         ),
-        "tech_stack": {
-            "Metrics": "Prometheus",
-            "Logs": "Loki / Promtail",
-            "Dashboards": "Grafana",
-        },
-        "github_url": "https://github.com/Kavallerya/devops-cv-app",
-        "live_url": "https://monitor.imorozov.xyz",
-        "featured": False,
-        "order": 3,
+        "order": 1,
     },
 ]
 
@@ -207,14 +182,6 @@ async def seed():
         else:
             print("[seed] Skills already exist, skipping.")
 
-        existing_certs = await session.execute(select(Certification).limit(1))
-        if existing_certs.scalar_one_or_none() is None:
-            for cert in CERTIFICATIONS_DATA:
-                session.add(Certification(**cert))
-            print(f"[seed] Inserted {len(CERTIFICATIONS_DATA)} certifications.")
-        else:
-            print("[seed] Certifications already exist, skipping.")
-
         existing_projects = await session.execute(select(Project).limit(1))
         if existing_projects.scalar_one_or_none() is None:
             for proj in PROJECTS_DATA:
@@ -222,6 +189,14 @@ async def seed():
             print(f"[seed] Inserted {len(PROJECTS_DATA)} projects.")
         else:
             print("[seed] Projects already exist, skipping.")
+
+        existing_edu = await session.execute(select(Education).limit(1))
+        if existing_edu.scalar_one_or_none() is None:
+            for edu in EDUCATION_DATA:
+                session.add(Education(**edu))
+            print(f"[seed] Inserted {len(EDUCATION_DATA)} education entries.")
+        else:
+            print("[seed] Education already exist, skipping.")
 
         await session.commit()
 

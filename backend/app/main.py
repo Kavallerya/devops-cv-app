@@ -5,7 +5,7 @@ from app.config import settings
 from app.database import engine
 from app.models import Base
 from app.metrics import PrometheusMiddleware
-from app.routers import profile, experience, skills, metrics, status, certifications, projects, github, contact
+from app.routers import profile, experience, skills, metrics, status, certifications, projects, github, contact, education
 
 
 @asynccontextmanager
@@ -41,6 +41,7 @@ app.include_router(certifications.router, prefix="/api", tags=["certifications"]
 app.include_router(projects.router, prefix="/api", tags=["projects"])
 app.include_router(github.router, prefix="/api", tags=["github"])
 app.include_router(contact.router, prefix="/api", tags=["contact"])
+app.include_router(education.router, prefix="/api", tags=["education"])
 
 
 @app.get("/health", tags=["health"])

@@ -5,13 +5,13 @@ export const fetchStatus = async () => {
   return data
 }
 
-export const fetchCertifications = async () => {
-  const { data } = await axios.get('/api/certifications')
+export const fetchProjects = async () => {
+  const { data } = await axios.get('/api/projects')
   return data
 }
 
-export const fetchProjects = async () => {
-  const { data } = await axios.get('/api/projects')
+export const fetchEducation = async () => {
+  const { data } = await axios.get('/api/education')
   return data
 }
 

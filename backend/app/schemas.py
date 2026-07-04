@@ -38,11 +38,22 @@ class SkillResponse(BaseModel):
     id: int
     category: str
     name: str
-    level: str
 
 
 class SkillsListResponse(BaseModel):
     categories: dict[str, list[SkillResponse]]
+
+
+class EducationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    institution: str
+    degree: str
+    field: str
+    period: str
+    description: str | None
+    order: int
 
 
 class CertificationResponse(BaseModel):
