@@ -11,9 +11,9 @@ from app.models import Base, Profile, Experience, Skill, Project, Education
 
 PROFILE_DATA = {
     "name": "Illya",
-    "title": "Junior DevOps Engineer | Cloud & GitOps Enthusiast",
+    "title": "DevOps Engineer | Cloud & GitOps Enthusiast",
     "summary": (
-        "I am a results-driven Junior DevOps Engineer with a strong focus on "
+        "I am a results-driven DevOps Engineer with a strong focus on "
         "Infrastructure as Code (IaC), GitOps automation, and system observability. "
         "Combining a solid academic foundation in Informatics at Collegium Da Vinci "
         "with hands-on experience in cloud-native environments, I specialize in "

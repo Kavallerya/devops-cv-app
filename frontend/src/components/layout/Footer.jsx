@@ -26,7 +26,7 @@ export default function Footer() {
           </a>
           <span className="text-surface-300 dark:text-surface-700">|</span>
           <a
-            href="/api/docs"
+            href="/docs"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-surface-700 dark:hover:text-surface-200 transition-colors flex items-center gap-1.5"

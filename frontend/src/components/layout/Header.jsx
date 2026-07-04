@@ -48,7 +48,7 @@ export default function Header({ onOpenArchitecture }) {
             <span className="hidden sm:inline">Architecture</span>
           </button>
           <a
-            href="/api/docs"
+            href="/docs"
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-400 hover:text-accent-600 dark:hover:text-accent-400 rounded-md border border-surface-200 dark:border-surface-700 hover:border-accent-500/50 transition-colors"
