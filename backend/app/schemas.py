@@ -43,3 +43,48 @@ class SkillResponse(BaseModel):
 
 class SkillsListResponse(BaseModel):
     categories: dict[str, list[SkillResponse]]
+
+
+class CertificationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    issuer: str
+    date: str
+    expiry_date: str | None
+    credential_url: str | None
+    badge_url: str | None
+    order: int
+
+
+class ProjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: str
+    tech_stack: dict | None
+    github_url: str | None
+    live_url: str | None
+    featured: bool
+    order: int
+
+
+class StatusResponse(BaseModel):
+    status: str
+    version: str
+    uptime_seconds: float
+    visitor_count: int
+
+
+class ContactRequest(BaseModel):
+    name: str
+    email: str
+    subject: str
+    message: str
+
+
+class ContactResponse(BaseModel):
+    id: int
+    message: str

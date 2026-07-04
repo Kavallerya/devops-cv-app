@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react'
 import { fetchProfile, fetchExperience, fetchSkills } from './api/cvApi'
-import Profile from './components/Profile'
-import Experience from './components/Experience'
-import Skills from './components/Skills'
+import Header from './components/layout/Header'
+import Footer from './components/layout/Footer'
+import MetricsBar from './components/dashboard/MetricsBar'
+import ProfileHero from './components/profile/ProfileHero'
+import SkillsDashboard from './components/skills/SkillsDashboard'
+import ExperienceTimeline from './components/experience/ExperienceTimeline'
+import GitHubActivity from './components/github/GitHubActivity'
+import ArchitectureShowcase from './components/architecture/ArchitectureShowcase'
+import ProjectsGrid from './components/projects/ProjectsGrid'
+import CertificationsGrid from './components/certifications/CertificationsGrid'
+import ContactForm from './components/contact/ContactForm'
 
 export default function App() {
   const [profile, setProfile] = useState(null)
@@ -33,31 +41,28 @@ export default function App() {
   }, [])
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="header-inner">
-          <span className="header-badge">Dynamic CV</span>
-          <a href="/api/docs" target="_blank" rel="noopener noreferrer" className="header-api-link">
-            API Docs
-          </a>
-        </div>
-      </header>
+    <div className="min-h-screen flex flex-col dark:bg-surface-950 bg-surface-50">
+      <Header />
 
-      <main className="app-main">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-14">
         {error && (
-          <div className="error-banner">
+          <div className="rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-400">
             <strong>Error:</strong> {error}
           </div>
         )}
 
-        <Profile data={profile} loading={loading} />
-        <Experience data={experience} loading={loading} />
-        <Skills data={skills} loading={loading} />
+        <MetricsBar />
+        <ProfileHero data={profile} loading={loading} />
+        <SkillsDashboard data={skills} loading={loading} />
+        <ExperienceTimeline data={experience} loading={loading} />
+        <GitHubActivity />
+        <ArchitectureShowcase />
+        <ProjectsGrid />
+        <CertificationsGrid />
+        <ContactForm />
       </main>
 
-      <footer className="app-footer">
-        <p>Powered by FastAPI + React — metrics at <a href="/api/metrics">/api/metrics</a></p>
-      </footer>
+      <Footer />
     </div>
   )
 }

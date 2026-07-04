@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from sqlalchemy import select
 from app.database import AsyncSessionLocal, engine
-from app.models import Base, Profile, Experience, Skill
+from app.models import Base, Profile, Experience, Skill, Certification, Project
 
 
 PROFILE_DATA = {
@@ -84,6 +84,100 @@ SKILLS_DATA = [
     {"category": "Databases", "name": "MongoDB", "level": "beginner"},
 ]
 
+CERTIFICATIONS_DATA = [
+    {
+        "name": "Certified Kubernetes Administrator (CKA)",
+        "issuer": "CNCF / The Linux Foundation",
+        "date": "2024-03",
+        "expiry_date": "2027-03",
+        "credential_url": "https://www.credly.com/example-cka",
+        "badge_url": "https://images.credly.com/cka-badge.png",
+        "order": 1,
+    },
+    {
+        "name": "AWS Solutions Architect — Associate",
+        "issuer": "Amazon Web Services",
+        "date": "2023-11",
+        "expiry_date": "2026-11",
+        "credential_url": "https://www.credly.com/example-aws-saa",
+        "badge_url": "https://images.credly.com/aws-saa-badge.png",
+        "order": 2,
+    },
+    {
+        "name": "HashiCorp Certified: Terraform Associate",
+        "issuer": "HashiCorp",
+        "date": "2023-06",
+        "expiry_date": "2025-06",
+        "credential_url": "https://www.credly.com/example-tf",
+        "badge_url": "https://images.credly.com/tf-badge.png",
+        "order": 3,
+    },
+    {
+        "name": "Certified Kubernetes Security Specialist (CKS)",
+        "issuer": "CNCF / The Linux Foundation",
+        "date": "2025-01",
+        "expiry_date": "2028-01",
+        "credential_url": "https://www.credly.com/example-cks",
+        "badge_url": "https://images.credly.com/cks-badge.png",
+        "order": 4,
+    },
+]
+
+PROJECTS_DATA = [
+    {
+        "name": "DevOps CV Platform",
+        "description": (
+            "Full-stack CI/CD portfolio platform built with FastAPI, React, PostgreSQL, "
+            "deployed on GKE with ArgoCD GitOps. Features automated Trivy scanning, "
+            "Prometheus/Grafana observability, and Dex OIDC authentication."
+        ),
+        "tech_stack": {
+            "Backend": "Python / FastAPI",
+            "Frontend": "React / Vite / Tailwind",
+            "Infra": "GCP / GKE / Terraform",
+            "CI/CD": "GitHub Actions / ArgoCD",
+            "Monitoring": "Prometheus / Grafana / Loki",
+        },
+        "github_url": "https://github.com/Kavallerya/devops-cv-app",
+        "live_url": "https://imorozov.xyz",
+        "featured": True,
+        "order": 1,
+    },
+    {
+        "name": "Infrastructure as Code Toolkit",
+        "description": (
+            "Collection of reusable Terraform modules for GCP and AWS. Includes configurations "
+            "for GKE clusters, VPC networking, IAM with Workload Identity, "
+            "and managed database provisioning."
+        ),
+        "tech_stack": {
+            "IaC": "Terraform / Terragrunt",
+            "Cloud": "GCP / AWS",
+            "Secrets": "Vault / GCP Secret Manager",
+        },
+        "github_url": "https://github.com/Kavallerya/devops-cv-app-infra",
+        "live_url": None,
+        "featured": True,
+        "order": 2,
+    },
+    {
+        "name": "Observability Stack",
+        "description": (
+            "Self-hosted monitoring stack with Prometheus for metrics, Loki for logs, "
+            "and Grafana for dashboards. Deployed via Docker Compose and Kubernetes Helm charts."
+        ),
+        "tech_stack": {
+            "Metrics": "Prometheus",
+            "Logs": "Loki / Promtail",
+            "Dashboards": "Grafana",
+        },
+        "github_url": "https://github.com/Kavallerya/devops-cv-app",
+        "live_url": "https://monitor.imorozov.xyz",
+        "featured": False,
+        "order": 3,
+    },
+]
+
 
 async def seed():
     async with engine.begin() as conn:
@@ -112,6 +206,22 @@ async def seed():
             print(f"[seed] Inserted {len(SKILLS_DATA)} skills.")
         else:
             print("[seed] Skills already exist, skipping.")
+
+        existing_certs = await session.execute(select(Certification).limit(1))
+        if existing_certs.scalar_one_or_none() is None:
+            for cert in CERTIFICATIONS_DATA:
+                session.add(Certification(**cert))
+            print(f"[seed] Inserted {len(CERTIFICATIONS_DATA)} certifications.")
+        else:
+            print("[seed] Certifications already exist, skipping.")
+
+        existing_projects = await session.execute(select(Project).limit(1))
+        if existing_projects.scalar_one_or_none() is None:
+            for proj in PROJECTS_DATA:
+                session.add(Project(**proj))
+            print(f"[seed] Inserted {len(PROJECTS_DATA)} projects.")
+        else:
+            print("[seed] Projects already exist, skipping.")
 
         await session.commit()
 
