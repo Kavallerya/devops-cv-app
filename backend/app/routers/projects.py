@@ -10,7 +10,5 @@ router = APIRouter()
 
 @router.get("/projects", response_model=list[ProjectResponse])
 async def get_projects(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Project).order_by(Project.order.asc())
-    )
+    result = await db.execute(select(Project).order_by(Project.order.asc()))
     return result.scalars().all()

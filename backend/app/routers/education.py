@@ -10,7 +10,5 @@ router = APIRouter()
 
 @router.get("/education", response_model=list[EducationResponse])
 async def get_education(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Education).order_by(Education.order.asc())
-    )
+    result = await db.execute(select(Education).order_by(Education.order.asc()))
     return result.scalars().all()

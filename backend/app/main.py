@@ -19,6 +19,7 @@ from app.routers import (
     status,
 )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:

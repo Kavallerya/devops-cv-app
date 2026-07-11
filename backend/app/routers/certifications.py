@@ -10,7 +10,5 @@ router = APIRouter()
 
 @router.get("/certifications", response_model=list[CertificationResponse])
 async def get_certifications(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Certification).order_by(Certification.order.asc())
-    )
+    result = await db.execute(select(Certification).order_by(Certification.order.asc()))
     return result.scalars().all()
