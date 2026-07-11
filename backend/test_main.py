@@ -13,4 +13,4 @@ def test_metrics_endpoint():
     """Перевіряємо, що метрики для Графани доступні"""
     response = client.get("/api/metrics")
     assert response.status_code == 200
-    assert "cv_api_requests_total" in response.text
+    assert "http_requests_total" in response.text

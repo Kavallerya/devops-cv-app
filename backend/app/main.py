@@ -1,12 +1,23 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from app.config import settings
 from app.database import engine
 from app.models import Base
-from app.metrics import PrometheusMiddleware
-from app.routers import profile, experience, skills, metrics, status, certifications, projects, github, contact, education
-
+from app.routers import (
+    certifications,
+    contact,
+    education,
+    experience,
+    github,
+    profile,
+    projects,
+    skills,
+    status,
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,7 +34,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(PrometheusMiddleware)
+Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=["/health", "/api/metrics"],
+    inprogress_name="http_requests_inprogress",
+    inprogress_labels=True,
+).instrument(app).expose(app, endpoint="/api/metrics")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_origins(),
@@ -35,7 +54,6 @@ app.add_middleware(
 app.include_router(profile.router, prefix="/api", tags=["profile"])
 app.include_router(experience.router, prefix="/api", tags=["experience"])
 app.include_router(skills.router, prefix="/api", tags=["skills"])
-app.include_router(metrics.router, prefix="/api", tags=["metrics"])
 app.include_router(status.router, prefix="/api", tags=["status"])
 app.include_router(certifications.router, prefix="/api", tags=["certifications"])
 app.include_router(projects.router, prefix="/api", tags=["projects"])

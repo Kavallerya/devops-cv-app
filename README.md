@@ -1,44 +1,88 @@
-# Dynamic CV as an API
+# Dynamic CV Platform — GitOps-Driven Full-Stack Portfolio
 
-A full-stack resume application serving your CV as a REST API, with a React frontend and Prometheus metrics ready for Grafana dashboarding.
+A production-grade CV/portfolio platform deployed on **GCP GKE** with **ArgoCD GitOps**, showcasing a FastAPI backend, React/Vite frontend, PostgreSQL, and a full observability stack (Prometheus, Loki, Grafana).
 
-**Stack:** Python 3.11+ · FastAPI · SQLAlchemy (async) · PostgreSQL · React 18 · Vite · prometheus-client
+**Stack:** Python 3.11 · FastAPI · SQLAlchemy (async) · PostgreSQL 15 · React 18 · Vite 6 · Tailwind CSS 4 · prometheus-client
+
+---
+
+## Architecture
+
+```
+                         Internet
+                            │
+                    ┌───────▼────────┐
+                    │  Cloudflare DNS │  imorozov.xyz
+                    └───────┬────────┘
+                            │ TLS (Let's Encrypt)
+                    ┌───────▼────────┐
+                    │   GCP GKE      │  europe-central2
+                    │ ┌────────────┐ │
+                    │ │ Nginx      │ │  ingress-nginx
+                    │ │ Ingress    │ │
+                    │ └─┬───────┬──┘ │
+                    │   │       │     │
+                    │   ▼       ▼     │
+                    │ Frontend  Backend│
+                    │  :80      :8000 │
+                    │   │       │     │
+                    │   │       ▼     │
+                    │   │   PostgreSQL│  PVC 5Gi
+                    │   │    :5432    │
+                    │   │             │
+                    │   └─Observability──┐
+                    │      Prometheus    │
+                    │      Grafana       │  Dex OIDC (GitHub)
+                    │      Loki          │
+                    └─────────────────────┘
+```
+
+| Domain | Target | Auth |
+|---|---|---|
+| `imorozov.xyz` | React SPA (Nginx) | Public |
+| `api.imorozov.xyz` | FastAPI REST API | Public |
+| `auth.imorozov.xyz` | Dex OIDC Provider | Public (OAuth) |
+| `monitor.imorozov.xyz` | Grafana Dashboard | Dex → GitHub (org-restricted) |
 
 ---
 
 ## Project Structure
 
+### Repositories
+
+| Repo | Purpose |
+|---|---|
+| `devops-cv-app` | Application source, Dockerfiles, CI/CD workflows |
+| `devops-cv-app-infra` | Terraform (GCP), ArgoCD configs, Kubernetes manifests |
+
+### Key Directories
+
 ```
-app-devops/
-├── backend/
-│   ├── app/
-│   │   ├── main.py         # FastAPI entry point
-│   │   ├── config.py       # Settings from .env
-│   │   ├── database.py     # Async SQLAlchemy engine
-│   │   ├── models.py       # ORM models (profile, experience, skills, visitors)
-│   │   ├── schemas.py      # Pydantic response schemas
-│   │   ├── metrics.py      # Prometheus counters + middleware
-│   │   └── routers/
-│   │       ├── profile.py
-│   │       ├── experience.py
-│   │       ├── skills.py
-│   │       └── metrics.py
-│   ├── seed.py             # One-time DB seed with sample CV data
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx
-│   │   ├── api/cvApi.js
-│   │   ├── components/
-│   │   │   ├── Profile.jsx
-│   │   │   ├── Experience.jsx
-│   │   │   └── Skills.jsx
-│   │   └── styles/main.css
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
-└── README.md
+devops-cv-app/
+├── backend/               # FastAPI backend service
+│   ├── app/routers/       # API endpoints (profile, experience, skills, etc.)
+│   ├── app/models.py      # SQLAlchemy ORM (8 models)
+│   ├── app/metrics.py     # Prometheus counters + histogram
+│   ├── seed.py            # Idempotent DB seeder
+│   └── Dockerfile         # Multi-stage (python:3.11-slim)
+├── frontend/              # React/Vite SPA
+│   ├── src/components/    # UI components (12 sections)
+│   ├── nginx.conf         # SPA routing + /api proxy + security headers
+│   └── Dockerfile         # Multi-stage (node:20-alpine → nginx:alpine)
+├── monitoring/            # Standalone Prometheus + Grafana (Legacy)
+└── .github/workflows/
+    ├── deploy.yml         # CI/CD: lint → test → build → scan → GitOps
+    └── monitoring-deploy.yml
+
+devops-cv-app-infra/
+├── terraform/             # GCP: VPC, GKE, External Secrets, ArgoCD
+├── argocd-config/         # ArgoCD Application CRDs (5 apps)
+└── k8s/
+    ├── app/               # Deployments: backend, frontend, db
+    ├── external-secrets/  # GCP Secret Manager → K8s Secrets
+    ├── monitoring/        # Loki, Grafana dashboard, ServiceMonitor
+    ├── ingress.yaml       # Nginx Ingress + TLS routing
+    └── cert-issuer.yaml   # Let's Encrypt DNS-01 via Cloudflare
 ```
 
 ---
@@ -46,211 +90,164 @@ app-devops/
 ## API Endpoints
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/profile` | Full profile object (name, title, summary, contacts) |
-| GET | `/api/experience` | List of work experience entries, ordered by date |
-| GET | `/api/skills` | Skills grouped by category with proficiency levels |
-| GET | `/api/metrics` | Prometheus metrics (scrape target) |
-| GET | `/health` | Health check — `{"status": "ok"}` |
-| GET | `/api/docs` | Interactive Swagger UI |
-| GET | `/api/redoc` | ReDoc documentation |
+|---|---|---|
+| GET | `/api/profile` | CV owner profile |
+| GET | `/api/experience` | Work history (ordered) |
+| GET | `/api/skills` | Skills grouped by category |
+| GET | `/api/projects` | Portfolio projects |
+| GET | `/api/certifications` | Professional certifications |
+| GET | `/api/education` | Education history |
+| GET | `/api/github/activity` | GitHub stats + recent repos |
+| POST | `/api/contact` | Contact form submission |
+| GET | `/api/status` | System status + uptime + visitors |
+| GET | `/api/metrics` | Prometheus metrics endpoint |
+| GET | `/health` | Liveness/readiness check |
+
+---
+
+## GitOps Delivery Pipeline
+
+```
+Developer push to devops-cv-app/main
+    │
+    ▼
+[GitHub Actions: deploy.yml]
+  ├── quality-checks: Ruff + Pytest + Alembic
+  ├── build-scan-push: Docker build → Trivy scan → push to Docker Hub
+  └── update-infra-repo: sed image tags → push to devops-cv-app-infra/main
+        │
+        ▼
+[ArgoCD detects drift]
+  ├── selfHeal: true, prune: true
+  ├── backend: Rolling Update
+  └── frontend: Rolling Update
+```
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|---|---|
+| `DOCKERHUB_USERNAME` | Docker Hub username |
+| `DOCKERHUB_TOKEN` | Docker Hub access token |
+| `INFRA_REPO_TOKEN` | PAT for `devops-cv-app-infra` write access |
+| `MONITORING_HOST` | Standalone monitoring VM IP |
+| `MONITORING_USER` | SSH user |
+| `MONITORING_SSH_KEY` | SSH private key |
+| `MONITORING_PORT` | SSH port (default 22) |
+| `CV_API_HOST` | API host for Prometheus scraping |
+| `GRAFANA_USER` / `GRAFANA_PASSWORD` | Grafana admin credentials |
+
+---
+
+## Observability
+
+### Metrics (Prometheus)
+
+| Metric | Type | Labels |
+|---|---|---|
+| `http_requests_total` | Counter | handler, method, status |
+| `http_request_duration_seconds` | Histogram | handler, method, le |
+| `http_requests_inprogress` | Gauge | handler, method |
+| `cv_visitors_total` | Counter | — |
+
+### Grafana Dashboard (7 Panels)
+
+| Panel | Query |
+|---|---|
+| Total API Requests | `sum(increase(http_requests_total[$__range]))` |
+| Unique Visitors | `cv_visitors_total` |
+| Request Rate by Endpoint | `sum by (handler, method) (rate(http_requests_total[$__rate_interval]))` |
+| P95 Request Latency | `histogram_quantile(0.95, sum by (le, handler) (rate(http_request_duration_seconds_bucket[$__rate_interval])))` |
+| Error Rate (5xx) | `sum(rate(http_requests_total{status=~"5.."}[$__rate_interval])) / sum(rate(http_requests_total[$__rate_interval])) or vector(0)` |
+| Requests by Status Code | `sum by (status) (rate(http_requests_total[$__rate_interval]))` |
+| Backend Logs | Loki — `{namespace="default"}` |
+
+### Authentication
+
+Grafana access is restricted via **Dex OIDC** with **GitHub OAuth**:
+- Org: `imorozov-infra`
+- Team: `devops` → Grafana Admin role
+- Other users → Viewer role
 
 ---
 
 ## Local Development
 
 ### Prerequisites
+- Python 3.11+, Node.js 20+, Docker Compose
 
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL (local or remote)
+### Quick Start
+```bash
+# 1. Configure environment
+cp .env.example .env
 
-### 1. Database Setup
+# 2. Start all services
+docker compose up -d
 
-Create the database:
-```sql
-CREATE DATABASE cv_db;
+# 3. Access
+# Frontend:  http://localhost
+# Backend:   http://localhost:8000/api/docs
+# Metrics:   http://localhost:8000/api/metrics
 ```
 
-### 2. Backend
-
+### Backend Only
 ```bash
 cd backend
-
-# Windows
-python -m venv .venv
-.venv\Scripts\activate
-
-# macOS / Linux
-python -m venv .venv
-source .venv/bin/activate
-
+cp .env.example .env
 pip install -r requirements.txt
-
-# Configure environment
-copy .env.example .env
-# Edit .env and set your DATABASE_URL
-
-# Seed the database with sample CV data (run once)
 python seed.py
-
-# Start the API server
 uvicorn app.main:app --reload --port 8000
 ```
 
-API will be available at `http://localhost:8000`
-Swagger UI at `http://localhost:8000/api/docs`
-
-### 3. Frontend
-
+### Frontend Only
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev    # http://localhost:5173, proxies /api → backend:8000
 ```
 
-Frontend will be available at `http://localhost:5173`
-The Vite dev proxy forwards `/api/*` requests to the backend automatically.
-
----
-
-## Environment Variables
-
-Copy `backend/.env.example` to `backend/.env` and fill in the values:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL async connection string | `postgresql+asyncpg://postgres:password@localhost:5432/cv_db` |
-| `APP_PORT` | Backend server port | `8000` |
-| `ALLOWED_ORIGINS` | Comma-separated CORS origins | `http://localhost:5173,http://localhost:3000` |
-
----
-
-## Prometheus Metrics
-
-The `/api/metrics` endpoint exposes metrics in the Prometheus text exposition format (version 0.0.4).
-
-### Available Metrics
-
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `cv_api_requests_total` | Counter | `endpoint`, `method`, `status_code` | Total API requests |
-| `cv_api_request_duration_seconds` | Histogram | `endpoint` | Request duration in seconds |
-| `cv_visitors_total` | Counter | — | Total unique CV visitors |
-
-### Prometheus Scrape Configuration
-
-Add to your `prometheus.yml`:
-
-```yaml
-scrape_configs:
-  - job_name: 'cv-api'
-    scrape_interval: 15s
-    static_configs:
-      - targets: ['localhost:8000']
-    metrics_path: '/api/metrics'
-```
-
-### Grafana Dashboard Queries
-
-Once Prometheus is scraping, use these PromQL queries in Grafana:
-
-**Total API Requests (by endpoint)**
-```promql
-sum by (endpoint) (cv_api_requests_total)
-```
-
-**Request Rate (5-minute window)**
-```promql
-rate(cv_api_requests_total[5m])
-```
-
-**P95 Request Latency**
-```promql
-histogram_quantile(0.95, rate(cv_api_request_duration_seconds_bucket[5m]))
-```
-
-**Unique Visitors**
-```promql
-cv_visitors_total
-```
-
-**Error Rate (non-2xx responses)**
-```promql
-sum(rate(cv_api_requests_total{status_code!~"2.."}[5m])) / sum(rate(cv_api_requests_total[5m]))
-```
-
----
-
-## Customizing Your CV
-
-All CV content is stored in the database. To update it:
-
-1. Edit the sample data directly in `backend/seed.py`
-2. Re-run `python seed.py` (the script is idempotent — it skips existing rows)
-3. Or connect to your PostgreSQL database directly and `UPDATE` the rows
-
----
-
-## Production Notes
-
-- Run with a production ASGI server: `uvicorn app.main:app --workers 4 --host 0.0.0.0 --port 8000`
-- Build the frontend for production: `cd frontend && npm run build` (outputs to `frontend/dist/`)
-- Serve the `dist/` folder via Nginx or configure FastAPI to serve static files
-- Use environment variables (not `.env` files) in production deployments
-
----
-
-## CI/CD Pipeline
-
-Every push to `main` triggers a two-job GitHub Actions workflow:
-
-```
-push to main
-    │
-    ▼
-[build-and-push]
-    ├── docker build backend  → DockerHub  (sha tag + latest)
-    └── docker build frontend → DockerHub  (sha tag + latest)
-    │
-    ▼
-[deploy]
-    ├── scp docker-compose.prod.yml → production server
-    ├── write .env from GitHub Secrets
-    ├── docker compose pull
-    ├── docker compose up -d --remove-orphans
-    └── docker image prune -f
-```
-
-### Required GitHub Secrets
-
-Go to **Settings → Secrets and variables → Actions** and add:
-
-| Secret | Description |
-|--------|-------------|
-| `DOCKERHUB_USERNAME` | Your Docker Hub username |
-| `DOCKERHUB_TOKEN` | Docker Hub access token (not your password — create one at hub.docker.com → Account Settings → Security) |
-| `PROD_HOST` | Production server IP or hostname |
-| `PROD_USER` | SSH user on the server (e.g. `ubuntu`, `root`) |
-| `PROD_SSH_KEY` | Private SSH key (contents of `~/.ssh/id_rsa`) |
-| `PROD_PORT` | SSH port (optional, defaults to `22`) |
-| `DB_USER` | PostgreSQL username |
-| `DB_PASSWORD` | PostgreSQL password |
-| `DB_NAME` | PostgreSQL database name |
-| `ALLOWED_ORIGINS` | Comma-separated allowed CORS origins (e.g. `https://yourdomain.com`) |
-Please note that the workflow file specifies the **"cv-devops-env"** secret environment
-### One-time server setup
-
-SSH into your production server and install Docker:
-
+### Run Tests
 ```bash
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-newgrp docker
+cd backend
+pip install ruff pytest
+ruff check .
+pytest test_main.py -v
 ```
 
-That's all — the pipeline handles everything else on every deploy.
+---
 
-### Manual trigger
+## Infrastructure Provisioning
 
-The workflow also has `workflow_dispatch`, so you can re-deploy any time from the GitHub Actions tab without pushing new code.
+### Initial Setup (one-time)
+```bash
+# 1. Provision GCP resources
+cd devops-cv-app-infra/terraform
+terraform init
+terraform apply
+
+# 2. Bootstrap ArgoCD
+kubectl apply -f bootstrap-platform.yaml
+```
+
+ArgoCD will then sync all infrastructure components (cert-manager, Dex, ingress-nginx, Prometheus stack) and application workloads automatically.
+
+### Deploy Application Update
+Just push to `main` in `devops-cv-app`. CI handles the rest — ArgoCD detects the new image tags and performs a rolling update.
+
+---
+
+## Security
+
+- **Secrets:** GCP Secret Manager → External Secrets Operator → K8s Secrets. Zero secrets in Git.
+- **Workload Identity:** GKE nodes authenticate to GCP without service account keys.
+- **Container Security:** Non-root users, `.dockerignore`, Trivy vulnerability scanning.
+- **TLS:** Let's Encrypt production certificates, auto-renewed by cert-manager.
+- **Auth:** Grafana OIDC via Dex, GitHub org/team restricted.
+- **Privacy:** Visitor IPs SHA-256 hashed before storage.
+- **Headers:** `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin`.
+
+---
+
+## Tech Debt & Roadmap
+
+See `.workspace/roadmap.md` for prioritized improvements.
