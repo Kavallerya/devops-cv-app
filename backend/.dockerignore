@@ -2,26 +2,26 @@
 .git
 .gitignore
 
-# Python кэш и артефакты
+# Python cache and artifacts
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 
-# Виртуальное окружение (очень важно исключить!)
+# Virtual environment
 venv/
 env/
 .venv/
 
-# Секреты и локальные конфиги
+# Secrets and local configuration
 .env
 .env.local
 
-# IDE (VS Code, PyCharm)
+# IDE
 .vscode/
 .idea/
 
-# Логи и базы данных (если локально используете SQLite)
+# Logs and databases
 *.log
 *.sqlite3
 *.db

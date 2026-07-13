@@ -20,7 +20,6 @@ WORKDIR /app
 COPY . .
 
 RUN chmod +x entrypoint.sh
-
 RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 

@@ -138,7 +138,7 @@ jobs:
         with:
           image-ref: '${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.tag }}'
           format: 'table'
-          exit-code: '1' # Падає, якщо є CRITICAL вразливості
+          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL'
@@ -163,7 +163,7 @@ jobs:
         with:
           image-ref: '${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.tag }}'
           format: 'table'
-          exit-code: '0' # Не блокуємо деплой через вразливості npm (вони завжди є)
+          exit-code: '0'
           severity: 'CRITICAL,HIGH'
 
       - name: Push Frontend Image
@@ -178,7 +178,7 @@ jobs:
   update-infra-repo:
     name: Update K8s Manifests in Infra Repo
     runs-on: ubuntu-latest
-    needs: build-scan-push # Зверни увагу: тепер чекаємо на build-scan-push!
+    needs: build-scan-push
     environment: cv-devops-env
 
     steps:
